@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel Admin - SC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f4f4f4; }
+    select, input { padding: 6px; width: 100%; box-sizing: border-box; }
+    button { padding: 6px 12px; margin: 2px; cursor: pointer; }
+    h2 { margin-top: 40px; }
+  </style>
+</head>
+<body>
+
+<h2>Instituições Credenciadas</h2>
+<form method="POST">
+  <table>
+    <tr>
+      <th>Município</th>
+      <th>Nome</th>
+      <th>Tipo</th>
+      <th>Endereço</th>
+      <th>Telefone</th>
+      <th>Email</th>
+      <th>CIPTEA</th>
+      <th>CIPF</th>
+      <th>Passe Livre</th>
+      <th>Ação</th>
+    </tr>
+    {% for municipio, insts in instituicoes.items() %}
+      {% for inst in insts %}
+      <tr>
+        <td><input type="text" name="municipio_{{ municipio }}_{{ loop.index0 }}" value="{{ municipio }}" required></td>
+        <td><input type="text" name="nome_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.nome }}" required></td>
+        <td>
+          <select name="tipo_{{ municipio }}_{{ loop.index0 }}">
+            <option value="CIPTEA" {% if inst.tipo == "CIPTEA" %}selected{% endif %}>CIPTEA</option>
+            <option value="Passe Livre" {% if inst.tipo == "Passe Livre" %}selected{% endif %}>Passe Livre</option>
+            <option value="Ambos" {% if inst.tipo == "Ambos" %}selected{% endif %}>Ambos</option>
+          </select>
+        </td>
+        <td><input type="text" name="endereco_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.endereco }}" required></td>
+        <td><input type="text" name="telefone_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.telefone }}" required></td>
+        <td><input type="email" name="email_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.email }}" required></td>
+        <td><input type="number" name="quantidade_ciptea_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.quantidade_ciptea }}"></td>
+        <td><input type="number" name="quantidade_cipf_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.quantidade_cipf }}"></td>
+        <td><input type="number" name="quantidade_passe_livre_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.quantidade_passe_livre }}"></td>
+        <td>
+          <button type="submit" name="delete" value="{{ municipio }}_{{ loop.index0 }}" onclick="return confirm('Excluir esta instituição?')">Excluir</button>
+        </td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+  </table>
+  <button type="submit">Salvar Alterações</button>
+</form>
+
+<h3>Adicionar Nova Instituição</h3>
+<form method="POST">
+  <input type="hidden" name="add" value="1">
+  <p>
+    Município: <input type="text" name="municipio" required>
+    Nome: <input type="text" name="nome" required>
+    Tipo:
+    <select name="tipo" required>
+      <option value="CIPTEA">CIPTEA</option>
+      <option value="Passe Livre">Passe Livre</option>
+      <option value="Ambos">Ambos</option>
+    </select>
+  </p>
+  <p>
+    Endereço: <input type="text" name="endereco" required size="40">
+    Telefone: <input type="text" name="telefone" required>
+    Email: <input type="email" name="email" required>
+  </p>
+  <p>
+    Quantidade CIPTEA: <input type="number" name="quantidade_ciptea">
+    Quantidade CIPF: <input type="number" name="quantidade_cipf">
+    Quantidade Passe Livre: <input type="number" name="quantidade_passe_livre">
+  </p>
+  <button type="submit">Adicionar Instituição</button>
+</form>
+
+<p><a href="/">Voltar para o mapa</a></p>
+
+</body>
+</html>
