@@ -10,13 +10,6 @@
     #map { height: 100vh; width: 100%; }
 
     /* Legenda padrão */
-    .info.legend i {
-      width: 18px;
-      height: 18px;
-      float: left;
-      margin-right: 8px;
-      opacity: 0.7;
-    }
     .info.legend {
       background: white;
       padding: 6px 12px;
@@ -24,7 +17,15 @@
       border-radius: 5px;
       font-size: 14px;
     }
+    .info.legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
 
+    /* Top bar */
     .top-bar {
       position: absolute;
       top: 10px;
@@ -39,33 +40,45 @@
       align-items: center;
       gap: 12px;
       font-size: 14px;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
     }
 
     .filter-buttons {
       display: flex;
       gap: 6px;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
-    .filter-buttons button { margin: 0; padding: 4px 8px; cursor: pointer; }
+    .filter-buttons button { padding: 4px 8px; cursor: pointer; }
 
-    .stats { font-weight: bold; }
+    .stats { font-weight: bold; white-space: nowrap; }
     #searchBox { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; }
 
     /* Legenda responsiva para celular */
     @media (max-width: 600px) {
+      .top-bar {
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
+        padding: 8px;
+        width: 95%;
+      }
+      .filter-buttons {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
       .info.legend {
         position: absolute !important;
-        top: 55px;   /* sobe mais próximo da top-bar */
-        left: 0;
-        right: 0;
-        margin: 0 auto;
-        width: 100%;
+        top: 90px;   /* logo abaixo da top-bar */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 95%;
         max-width: 95%;
         padding: 10px;
-        font-size: 14px;
+        font-size: 13px;
         display: flex;
-        flex-direction: column; /* uma abaixo da outra */
+        flex-direction: column;
         gap: 6px;
         box-sizing: border-box;
       }
@@ -73,7 +86,6 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        justify-content: flex-start;
       }
       .info.legend i {
         width: 18px;
