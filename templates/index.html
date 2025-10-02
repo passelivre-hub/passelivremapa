@@ -6,17 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-    }
-
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
+    body, html { margin: 0; padding: 0; height: 100%; }
+    #map { height: 100vh; width: 100%; }
 
     /* Título fixo */
     .title {
@@ -24,74 +15,66 @@
       top: 5px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.95);
       padding: 6px 14px;
       border-radius: 8px;
       box-shadow: 0px 2px 6px rgba(0,0,0,0.3);
       font-weight: bold;
-      font-size: 16px;
-      z-index: 2000; /* sempre acima do mapa */
+      font-size: 18px;
+      z-index: 2000;
+      text-align: center;
+      white-space: nowrap;
     }
 
+    /* Barra superior */
     .top-bar {
       position: absolute;
-      top: 45px; /* abaixo do título */
+      top: 50px; /* abaixo do título */
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      padding: 10px;
-      border-radius: 8px;
-      box-shadow: 0px 2px 6px rgba(0,0,0,0.3);
+      padding: 6px 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      z-index: 1000;
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
       align-items: center;
-      z-index: 1500;
+      gap: 12px;
       font-size: 14px;
+      flex-wrap: nowrap;
     }
 
-    .top-bar button {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      background: #f0f0f0;
+    .filter-buttons {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
     }
+    .filter-buttons button { margin: 0; padding: 4px 8px; cursor: pointer; }
 
-    /* Legenda */
-    .legend {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
+    .stats { font-weight: bold; }
+    #searchBox { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; }
+
+    /* Legenda padrão */
+    .info.legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
+    .info.legend {
       background: white;
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0px 2px 6px rgba(0,0,0,0.3);
+      padding: 8px 14px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 6px;
       font-size: 14px;
-      line-height: 1.4;
-      z-index: 2000; /* acima do mapa */
-      max-width: 320px;
     }
 
-    .legend div {
-      display: flex;
-      align-items: center;
-      margin-bottom: 6px;
-    }
-
-    .legend div span {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      margin-right: 6px;
-      border: 1px solid #000;
-    }
-
-    /* Ajustes para celular */
-    @media (max-width: 768px) {
+    /* Ajustes responsivos */
+    @media (max-width: 600px) {
       .title {
-        font-size: 14px;
-        padding: 4px 10px;
+        font-size: 13px;
+        padding: 4px 8px;
       }
 
       .top-bar {
@@ -99,14 +82,20 @@
         gap: 6px;
         font-size: 12px;
         padding: 8px;
+        top: 40px;
       }
 
-      .legend {
-        bottom: 80px; /* sobe mais para não sumir atrás da borda */
-        left: 10px;
-        right: 10px;
+      .info.legend {
+        position: absolute !important;
+        bottom: 10px;   /* fixa embaixo */
+        left: 50%;
+        transform: translateX(-50%);
+        margin: 0 auto;
+        width: 95%;
         font-size: 12px;
-        max-width: 90%;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
       }
     }
   </style>
@@ -119,26 +108,145 @@
 
   <!-- Barra superior -->
   <div class="top-bar">
-    <button>CIPTEA</button>
-    <button>CIPF</button>
-    <button>Passe Livre</button>
-    <span><strong>Instituições Credenciadas:</strong> 132</span>
-    <input type="text" placeholder="Buscar município">
-  </div>
-
-  <!-- Legenda -->
-  <div class="legend">
-    <div><span style="background: green;"></span> Possui credenciamento</div>
-    <div><span style="background: red;"></span> Em análise</div>
-    <div><span style="background: blue;"></span> Outro status</div>
+    <div class="filter-buttons">
+      <button onclick="filterMap('Todos')">Todos</button>
+      <button onclick="filterMap('CIPTEA')">CIPTEA</button>
+      <button onclick="filterMap('CIPF')">CIPF</button>
+      <button onclick="filterMap('Passe Livre')">Passe Livre</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <input type="text" id="searchBox" placeholder="Buscar município...">
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    var map = L.map('map').setView([-27.2423, -50.2189], 7);
+    const municipiosStatus = {{ municipiosStatus | tojson }};
+    const municipiosInstituicoes = {{ municipiosInstituicoes | tojson }};
+
+    function getColor(status) {
+      switch(status) {
+        case "CIPTEA": return "#2b58de";
+        case "Passe Livre": return "red";
+        case "CIPF": return "purple";
+        case "CIPTEA e Passe Livre":
+        case "Ambos": return "rgb(166,206,57)";
+        default: return "lightgray";
+      }
+    }
+
+    var map = L.map('map').setView([-27.2, -50.5], 7);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18
+      attribution: '&copy; OpenStreetMap'
     }).addTo(map);
+
+    var geoLayer;
+    var legend;
+
+    fetch("sc_municipios.geojson")
+      .then(res => res.json())
+      .then(data => {
+        geoLayer = L.geoJson(data, {
+          style: feature => ({
+            color: "#333",
+            weight: 1,
+            fillColor: getColor(municipiosStatus[feature.properties.name] || "Nenhum"),
+            fillOpacity: 0.6
+          }),
+          onEachFeature: (feature, layer) => {
+            const nome = feature.properties.name;
+            let status = municipiosStatus[nome] || "Nenhum";
+
+            if (status === "Passe Livre" || status === "CIPTEA e Passe Livre" || status === "Ambos") {
+              status = (status === "Passe Livre") ? "CIPF e Passe Livre" : "CIPTEA, Passe Livre e CIPF";
+            }
+
+            let popupHtml = `<b>${nome}</b><br>Status: ${status}`;
+
+            if (municipiosInstituicoes[nome]) {
+              popupHtml += "<br><br><b>Instituições credenciadas:</b><ul>";
+              municipiosInstituicoes[nome].forEach(inst => {
+                popupHtml += `
+                  <li>
+                    <b>${inst.nome}</b> (${inst.tipo})<br>
+                    ${inst.endereco}<br>
+                    Tel: ${inst.telefone}<br>
+                    Email: ${inst.email}<br>
+                    Quantidade: CIPTEA: ${inst.quantidade_ciptea || 0}, CIPF: ${inst.quantidade_cipf || 0}, Passe Livre: ${inst.quantidade_passe_livre || 0}
+                  </li>
+                `;
+              });
+              popupHtml += "</ul>";
+            }
+
+            layer.bindPopup(popupHtml);
+            layer.featureStatus = status;
+          }
+        }).addTo(map);
+
+        legend = L.control({position: 'bottomright'});
+        legend.onAdd = function() {
+          return L.DomUtil.create('div', 'info legend');
+        };
+        legend.addTo(map);
+
+        updateStats();
+      });
+
+    function filterMap(status) {
+      geoLayer.eachLayer(layer => {
+        const s = layer.featureStatus;
+        let show = false;
+
+        if (status === "Todos") show = true;
+        else if (status === "Passe Livre") show = s.includes("Passe Livre");
+        else if (status === "CIPTEA") show = s.includes("CIPTEA");
+        else if (status === "CIPF") show = s.includes("CIPF");
+
+        layer.setStyle({ fillOpacity: show ? 0.6 : 0 });
+      });
+    }
+
+    function updateStats() {
+      let totalInstituicoes = 0;
+      let totalCIPTEA = 0;
+      let totalCIPF = 0;
+      let totalPasseLivre = 0;
+
+      Object.values(municipiosInstituicoes).forEach(insts => {
+        totalInstituicoes += insts.length;
+        insts.forEach(inst => {
+          totalCIPTEA += parseInt(inst.quantidade_ciptea || 0);
+          totalCIPF += parseInt(inst.quantidade_cipf || 0);
+          totalPasseLivre += parseInt(inst.quantidade_passe_livre || 0);
+        });
+      });
+
+      document.getElementById("stats").innerText =
+        `Instituições Credenciadas: ${totalInstituicoes}`;
+
+      if (legend) {
+        legend.getContainer().innerHTML = `
+          <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
+          <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
+          <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
+        `;
+      }
+    }
+
+    document.getElementById("searchBox").addEventListener("keyup", function(e) {
+      if(e.key === "Enter") {
+        const query = this.value.toLowerCase();
+        geoLayer.eachLayer(layer => {
+          if(layer.feature.properties.name.toLowerCase() === query) {
+            map.fitBounds(layer.getBounds());
+            layer.openPopup();
+          }
+        });
+      }
+    });
+
+    window.addEventListener('resize', updateStats);
   </script>
 </body>
 </html>
