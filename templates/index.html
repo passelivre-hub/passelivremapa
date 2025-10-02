@@ -6,57 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-    }
+    body, html { margin: 0; padding: 0; height: 100%; }
+    #map { height: 100vh; width: 100%; }
 
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Barra superior */
-    .top-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: #004aad;
-      color: white;
-      text-align: center;
-      padding: 10px;
-      font-size: 18px;
-      font-weight: bold;
-      z-index: 1000;
-    }
-
-    /* Controles de filtro */
-    .filter-container {
-      position: absolute;
-      top: 60px;
-      left: 10px;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 8px;
-      border-radius: 5px;
-      font-size: 14px;
-      z-index: 1000;
-    }
-
-    /* Legenda padrão (desktop) */
-    .info.legend {
-      position: absolute;
-      bottom: 30px;
-      right: 10px;
-      background: white;
-      padding: 6px 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.2);
-      border-radius: 5px;
-      font-size: 14px;
-      line-height: 18px;
-    }
+    /* Legenda padrão */
     .info.legend i {
       width: 18px;
       height: 18px;
@@ -64,81 +17,214 @@
       margin-right: 8px;
       opacity: 0.7;
     }
+    .info.legend {
+      background: white;
+      padding: 6px 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      font-size: 14px;
+    }
 
-    /* Responsivo para celular */
+    .top-bar {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 6px 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      flex-wrap: nowrap;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .filter-buttons button { margin: 0; padding: 4px 8px; cursor: pointer; }
+
+    .stats { font-weight: bold; }
+    #searchBox { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; }
+
+    /* Legenda responsiva para celular */
     @media (max-width: 600px) {
-      .top-bar {
-        font-size: 16px;
-        padding: 8px;
-      }
-      .filter-container {
-        top: 50px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        font-size: 12px;
-        text-align: center;
-      }
       .info.legend {
-        top: 95px;  /* aparece logo abaixo da barra */
-        bottom: auto;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 95%;
+        position: absolute !important;
+        top: 55px;   /* sobe mais próximo da top-bar */
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 95%;
         padding: 10px;
         font-size: 14px;
         display: flex;
-        justify-content: space-around;
-        align-items: center;
+        flex-direction: column; /* uma abaixo da outra */
+        gap: 6px;
         box-sizing: border-box;
       }
       .info.legend div {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
+        justify-content: flex-start;
       }
       .info.legend i {
-        width: 20px;
-        height: 20px;
-        margin-right: 4px;
+        width: 18px;
+        height: 18px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="top-bar">Mapa Interativo - Credenciamentos SC</div>
   <div id="map"></div>
-  <div class="filter-container">
-    <label><input type="checkbox" id="toggleMesorregioes" checked> Mesorregiões</label><br>
-    <label><input type="checkbox" id="toggleMunicipios" checked> Municípios</label>
+
+  <div class="top-bar">
+    <div class="filter-buttons">
+      <button onclick="filterMap('Todos')">Todos</button>
+      <button onclick="filterMap('CIPTEA')">CIPTEA</button>
+      <button onclick="filterMap('CIPF')">CIPF</button>
+      <button onclick="filterMap('Passe Livre')">Passe Livre</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <input type="text" id="searchBox" placeholder="Buscar município...">
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    var map = L.map('map').setView([-27.2423, -50.2189], 7);
+    const municipiosStatus = {{ municipiosStatus | tojson }};
+    const municipiosInstituicoes = {{ municipiosInstituicoes | tojson }};
+
+    function getColor(status) {
+      switch(status) {
+        case "CIPTEA": return "#2b58de";
+        case "Passe Livre": return "red";
+        case "CIPF": return "purple";
+        case "CIPTEA e Passe Livre":
+        case "Ambos": return "rgb(166,206,57)";
+        default: return "lightgray";
+      }
+    }
+
+    var map = L.map('map').setView([-27.2, -50.5], 7);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // Criando a legenda
-    var legend = L.control({position: 'bottomright'});
-    legend.onAdd = function () {
-      var div = L.DomUtil.create('div', 'info legend');
-      div.innerHTML += '<div><i style="background: #ff0000"></i>Mesorregiões</div>';
-      div.innerHTML += '<div><i style="background: #0000ff"></i>Municípios</div>';
-      return div;
-    };
-    legend.addTo(map);
+    var geoLayer;
+    var legend;
 
-    // Checkboxes para filtros
-    document.getElementById('toggleMesorregioes').addEventListener('change', function(e) {
-      alert("Aqui você vai alternar a camada de Mesorregiões");
+    fetch("sc_municipios.geojson")
+      .then(res => res.json())
+      .then(data => {
+        geoLayer = L.geoJson(data, {
+          style: feature => ({
+            color: "#333",
+            weight: 1,
+            fillColor: getColor(municipiosStatus[feature.properties.name] || "Nenhum"),
+            fillOpacity: 0.6
+          }),
+          onEachFeature: (feature, layer) => {
+            const nome = feature.properties.name;
+            let status = municipiosStatus[nome] || "Nenhum";
+
+            if (status === "Passe Livre" || status === "CIPTEA e Passe Livre" || status === "Ambos") {
+              status = (status === "Passe Livre") ? "CIPF e Passe Livre" : "CIPTEA, Passe Livre e CIPF";
+            }
+
+            let popupHtml = `<b>${nome}</b><br>Status: ${status}`;
+
+            if (municipiosInstituicoes[nome]) {
+              popupHtml += "<br><br><b>Instituições credenciadas:</b><ul>";
+              municipiosInstituicoes[nome].forEach(inst => {
+                popupHtml += `
+                  <li>
+                    <b>${inst.nome}</b> (${inst.tipo})<br>
+                    ${inst.endereco}<br>
+                    Tel: ${inst.telefone}<br>
+                    Email: ${inst.email}<br>
+                    Quantidade: CIPTEA: ${inst.quantidade_ciptea || 0}, CIPF: ${inst.quantidade_cipf || 0}, Passe Livre: ${inst.quantidade_passe_livre || 0}
+                  </li>
+                `;
+              });
+              popupHtml += "</ul>";
+            }
+
+            layer.bindPopup(popupHtml);
+            layer.featureStatus = status;
+          }
+        }).addTo(map);
+
+        legend = L.control({position: 'bottomright'});
+        legend.onAdd = function() {
+          return L.DomUtil.create('div', 'info legend');
+        };
+        legend.addTo(map);
+
+        updateStats();
+      });
+
+    function filterMap(status) {
+      geoLayer.eachLayer(layer => {
+        const s = layer.featureStatus;
+        let show = false;
+
+        if (status === "Todos") show = true;
+        else if (status === "Passe Livre") show = s.includes("Passe Livre");
+        else if (status === "CIPTEA") show = s.includes("CIPTEA");
+        else if (status === "CIPF") show = s.includes("CIPF");
+
+        layer.setStyle({ fillOpacity: show ? 0.6 : 0 });
+      });
+    }
+
+    function updateStats() {
+      let totalInstituicoes = 0;
+      let totalCIPTEA = 0;
+      let totalCIPF = 0;
+      let totalPasseLivre = 0;
+
+      Object.values(municipiosInstituicoes).forEach(insts => {
+        totalInstituicoes += insts.length;
+        insts.forEach(inst => {
+          totalCIPTEA += parseInt(inst.quantidade_ciptea || 0);
+          totalCIPF += parseInt(inst.quantidade_cipf || 0);
+          totalPasseLivre += parseInt(inst.quantidade_passe_livre || 0);
+        });
+      });
+
+      document.getElementById("stats").innerText =
+        `Instituições Credenciadas: ${totalInstituicoes}`;
+
+      if (legend) {
+        legend.getContainer().innerHTML = `
+          <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
+          <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
+          <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
+        `;
+      }
+    }
+
+    document.getElementById("searchBox").addEventListener("keyup", function(e) {
+      if(e.key === "Enter") {
+        const query = this.value.toLowerCase();
+        geoLayer.eachLayer(layer => {
+          if(layer.feature.properties.name.toLowerCase() === query) {
+            map.fitBounds(layer.getBounds());
+            layer.openPopup();
+          }
+        });
+      }
     });
-    document.getElementById('toggleMunicipios').addEventListener('change', function(e) {
-      alert("Aqui você vai alternar a camada de Municípios");
-    });
+
+    window.addEventListener('resize', updateStats);
   </script>
 </body>
 </html>
