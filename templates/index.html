@@ -56,25 +56,28 @@
     @media (max-width: 600px) {
       .info.legend {
         position: absolute !important;
-        bottom: auto !important;
-        top: 60px; /* sobe um pouco mais que antes */
-        left: 5%;
-        width: 90%;
-        padding: 8px;
+        top: 55px;   /* sobe mais próximo da top-bar */
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 95%;
+        padding: 10px;
         font-size: 14px;
         display: flex;
-        justify-content: space-around;
+        flex-direction: column; /* uma abaixo da outra */
+        gap: 6px;
         box-sizing: border-box;
       }
       .info.legend div {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
+        justify-content: flex-start;
       }
       .info.legend i {
-        width: 20px;
-        height: 20px;
-        margin-right: 4px;
+        width: 18px;
+        height: 18px;
       }
     }
   </style>
@@ -201,19 +204,11 @@
         `Instituições Credenciadas: ${totalInstituicoes}`;
 
       if (legend) {
-        if (window.innerWidth <= 600) {
-          legend.getContainer().innerHTML = `
-            <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
-            <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
-            <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
-          `;
-        } else {
-          legend.getContainer().innerHTML = `
-            <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
-            <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
-            <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
-          `;
-        }
+        legend.getContainer().innerHTML = `
+          <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
+          <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
+          <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
+        `;
       }
     }
 
