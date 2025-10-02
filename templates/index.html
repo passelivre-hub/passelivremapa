@@ -41,32 +41,34 @@
 
     #searchBox { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; text-align: center; }
 
-    /* Legenda padrão */
-    .info.legend i {
-      width: 18px;
-      height: 18px;
-      float: left;
-      margin-right: 8px;
-      opacity: 0.7;
-    }
-    .info.legend {
+    /* Legenda dentro da top-bar */
+    .legend-bar {
       background: white;
       padding: 6px 12px;
       box-shadow: 0 0 15px rgba(0,0,0,0.2);
       border-radius: 5px;
       font-size: 14px;
       text-align: center;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
       margin-top: 6px;
+    }
+    .legend-bar i {
+      width: 18px;
+      height: 18px;
+      display: inline-block;
+      margin-right: 4px;
+      opacity: 0.7;
     }
 
     /* Responsivo para celular */
     @media (max-width: 600px) {
-      .top-bar {
-        padding: 10px;
-        gap: 8px;
-      }
+      .top-bar { width: 95%; padding: 10px; gap: 8px; }
       .filter-buttons { justify-content: center; }
       #searchBox { width: 90%; }
+      .legend-bar { width: 100%; max-width: 95%; }
     }
   </style>
 </head>
@@ -83,6 +85,7 @@
     </div>
     <div class="stats" id="stats"></div>
     <input type="text" id="searchBox" placeholder="Buscar município...">
+    <div class="legend-bar" id="legendBar"></div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -108,7 +111,6 @@
     }).addTo(map);
 
     var geoLayer;
-    var legend;
 
     fetch("sc_municipios.geojson")
       .then(res => res.json())
@@ -151,12 +153,6 @@
           }
         }).addTo(map);
 
-        legend = L.control({position: 'bottomright'});
-        legend.onAdd = function() {
-          return L.DomUtil.create('div', 'info legend');
-        };
-        legend.addTo(map);
-
         updateStats();
       });
 
@@ -192,13 +188,12 @@
       document.getElementById("stats").innerText =
         `Instituições Credenciadas: ${totalInstituicoes}`;
 
-      if (legend) {
-        legend.getContainer().innerHTML = `
-          <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
-          <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
-          <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
-        `;
-      }
+      const legendDiv = document.getElementById("legendBar");
+      legendDiv.innerHTML = `
+        <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
+        <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
+        <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
+      `;
     }
 
     document.getElementById("searchBox").addEventListener("keyup", function(e) {
