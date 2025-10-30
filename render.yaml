@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: admin-passelivre
+    env: python
+    buildCommand: ""
+    startCommand: gunicorn app:app
+    envVars:
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        value: fcee2025
+      - key: SECRET_KEY
+        value: chave-super-secreta
