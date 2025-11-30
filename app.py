@@ -14,6 +14,17 @@ DEMO_FILE = "demografia.csv"
 
 
 # -------- Funções utilitárias -------- #
+def to_non_negative_int(value, default=0):
+    try:
+        return max(int(str(value).strip() or default), 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_numeric_field(value):
+    return str(to_non_negative_int(value, 0))
+
+
 def load_dados():
     instituicoes = {}
     todos_municipios = set()
@@ -32,9 +43,9 @@ def load_dados():
                         "endereco": row["endereco"].strip(),
                         "telefone": row["telefone"].strip(),
                         "email": row["email"].strip(),
-                        "quantidade_ciptea": row.get("quantidade_ciptea", "").strip(),
-                        "quantidade_cipf": row.get("quantidade_cipf", "").strip(),
-                        "quantidade_passe_livre": row.get("quantidade_passe_livre", "").strip()
+                        "quantidade_ciptea": normalize_numeric_field(row.get("quantidade_ciptea", "")),
+                        "quantidade_cipf": normalize_numeric_field(row.get("quantidade_cipf", "")),
+                        "quantidade_passe_livre": normalize_numeric_field(row.get("quantidade_passe_livre", ""))
                     }
                     if municipio not in instituicoes:
                         instituicoes[municipio] = []
@@ -66,7 +77,7 @@ def load_demografia_rows():
                     "tipo_deficiencia": row.get("tipo_deficiencia", "").strip(),
                     "faixa_etaria": row.get("faixa_etaria", "").strip(),
                     "mes": row.get("mes", "").strip(),
-                    "quantidade": row.get("quantidade", "0").strip(),
+                    "quantidade": normalize_numeric_field(row.get("quantidade", "0")),
                 })
 
     return linhas
@@ -79,7 +90,7 @@ def resumir_demografia(linhas):
     por_mes = {}
 
     for row in linhas:
-        qtd = int(row.get("quantidade", 0) or 0)
+        qtd = to_non_negative_int(row.get("quantidade", 0), 0)
         por_deficiencia[row["tipo_deficiencia"]] = por_deficiencia.get(row["tipo_deficiencia"], 0) + qtd
         por_faixa[row["faixa_etaria"]] = por_faixa.get(row["faixa_etaria"], 0) + qtd
         por_regiao[row["regiao"]] = por_regiao.get(row["regiao"], 0) + qtd
@@ -193,9 +204,9 @@ def admin():
                         instituicoes[municipio][idx]["endereco"] = request.form.get(f"endereco_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["telefone"] = request.form.get(f"telefone_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["email"] = request.form.get(f"email_{municipio}_{idx}", "").strip()
-                        instituicoes[municipio][idx]["quantidade_ciptea"] = request.form.get(f"quantidade_ciptea_{municipio}_{idx}", "").strip()
-                        instituicoes[municipio][idx]["quantidade_cipf"] = request.form.get(f"quantidade_cipf_{municipio}_{idx}", "").strip()
-                        instituicoes[municipio][idx]["quantidade_passe_livre"] = request.form.get(f"quantidade_passe_livre_{municipio}_{idx}", "").strip()
+                        instituicoes[municipio][idx]["quantidade_ciptea"] = normalize_numeric_field(request.form.get(f"quantidade_ciptea_{municipio}_{idx}", ""))
+                        instituicoes[municipio][idx]["quantidade_cipf"] = normalize_numeric_field(request.form.get(f"quantidade_cipf_{municipio}_{idx}", ""))
+                        instituicoes[municipio][idx]["quantidade_passe_livre"] = normalize_numeric_field(request.form.get(f"quantidade_passe_livre_{municipio}_{idx}", ""))
 
             if request.form.get("add"):
                 municipio = request.form.get("municipio", "").strip()
@@ -206,9 +217,9 @@ def admin():
                         "endereco": request.form.get("endereco", "").strip(),
                         "telefone": request.form.get("telefone", "").strip(),
                         "email": request.form.get("email", "").strip(),
-                        "quantidade_ciptea": request.form.get("quantidade_ciptea", "").strip(),
-                        "quantidade_cipf": request.form.get("quantidade_cipf", "").strip(),
-                        "quantidade_passe_livre": request.form.get("quantidade_passe_livre", "").strip()
+                        "quantidade_ciptea": normalize_numeric_field(request.form.get("quantidade_ciptea", "")),
+                        "quantidade_cipf": normalize_numeric_field(request.form.get("quantidade_cipf", "")),
+                        "quantidade_passe_livre": normalize_numeric_field(request.form.get("quantidade_passe_livre", ""))
                     }
                     if municipio not in instituicoes:
                         instituicoes[municipio] = []
@@ -228,7 +239,7 @@ def admin():
                     "tipo_deficiencia": request.form.get(f"dem_tipo_{idx}", "").strip(),
                     "faixa_etaria": request.form.get(f"dem_faixa_{idx}", "").strip(),
                     "mes": request.form.get(f"dem_mes_{idx}", "").strip(),
-                    "quantidade": request.form.get(f"dem_quantidade_{idx}", "0").strip(),
+                    "quantidade": normalize_numeric_field(request.form.get(f"dem_quantidade_{idx}", "0")),
                 })
 
             if request.form.get("add_demografia"):
@@ -238,7 +249,7 @@ def admin():
                     "tipo_deficiencia": request.form.get("novo_tipo_deficiencia", "").strip(),
                     "faixa_etaria": request.form.get("novo_faixa_etaria", "").strip(),
                     "mes": request.form.get("novo_mes", "").strip(),
-                    "quantidade": request.form.get("novo_quantidade", "0").strip(),
+                    "quantidade": normalize_numeric_field(request.form.get("novo_quantidade", "0")),
                 })
 
             save_demografia(atualizadas)
