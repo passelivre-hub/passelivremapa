@@ -164,7 +164,7 @@
   <script>
     const municipiosStatus = {{ municipiosStatus | tojson }};
     const municipiosInstituicoes = {{ municipiosInstituicoes | tojson }};
-    const demografia = {{ demografia | tojson }};
+    const demografia = {{ demografia | tojson }} || {};
     const mainGreen = '#A1C84D';
 
     function getColor(status) {
@@ -261,15 +261,20 @@
     }
 
     function renderDemografia() {
-      const { por_deficiencia, por_faixa, por_regiao, por_mes } = demografia;
+      const por_deficiencia = demografia.por_deficiencia || {};
+      const por_faixa = demografia.por_faixa || {};
+      const por_regiao = demografia.por_regiao || {};
+      const por_mes = demografia.por_mes || {};
 
-      const ordemDeficiencia = ["TEA", "Fibromialgia", "Demais Def."];
-      const ordemRegiao = ["Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"];
+      const ordemDeficiencia = ["TEA", "Fibromialgia", "Demais Def.", "Não informado"];
+      const ordemRegiao = ["Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste", "Não informada"];
 
-      const totalDef = Object.values(por_deficiencia).reduce((a,b)=>a+b,0);
-      const totalFaixa = Object.values(por_faixa).reduce((a,b)=>a+b,0);
-      const totalRegiao = Object.values(por_regiao).reduce((a,b)=>a+b,0);
-      const totalMes = Object.values(por_mes).reduce((a,b)=>a+b,0);
+      const safeSum = (values) => values.reduce((total, value) => total + (Number(value) || 0), 0);
+
+      const totalDef = safeSum(Object.values(por_deficiencia));
+      const totalFaixa = safeSum(Object.values(por_faixa));
+      const totalRegiao = safeSum(Object.values(por_regiao));
+      const totalMes = safeSum(Object.values(por_mes));
 
       document.getElementById('totalDeficiencia').innerText = `${totalDef} carteiras`;
       document.getElementById('totalFaixa').innerText = `${totalFaixa} carteiras`;
@@ -279,8 +284,8 @@
       const defLabels = ordemDeficiencia.filter(d => por_deficiencia[d] !== undefined);
       renderChart('chartDeficiencia', defLabels, defLabels.map(d => por_deficiencia[d]), 'Por tipo');
 
-      const faixaLabels = Object.keys(por_faixa);
-      renderChart('chartFaixa', faixaLabels, faixaLabels.map(f => por_faixa[f]), 'Por faixa');
+      const faixaLabels = Object.keys(por_faixa).length ? Object.keys(por_faixa) : ["Sem dados"];
+      renderChart('chartFaixa', faixaLabels, faixaLabels.map(f => por_faixa[f] || 0), 'Por faixa');
 
       const regiaoLabels = ordemRegiao.filter(r => por_regiao[r] !== undefined);
       renderChart('chartRegiao', regiaoLabels, regiaoLabels.map(r => por_regiao[r]), 'Por região', 'bar', { indexAxis: 'y' });
