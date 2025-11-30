@@ -144,6 +144,7 @@
   <h2>Instituições Credenciadas</h2>
 
   <form method="POST">
+    <input type="hidden" name="form_type" value="instituicoes">
     <div class="edit-section">
       <table>
         <tr>
@@ -189,6 +190,7 @@
 
   <h3>Adicionar Nova Instituição</h3>
   <form method="POST" class="add-form">
+    <input type="hidden" name="form_type" value="instituicoes">
     <input type="hidden" name="add" value="1">
     <p>
       <b>Município:</b> <input type="text" name="municipio" required>
@@ -211,6 +213,88 @@
       <b>Quantidade Passe Livre:</b> <input type="number" name="quantidade_passe_livre">
     </p>
     <button type="submit">➕ Adicionar Instituição</button>
+  </form>
+
+  <h2>Dados Demográficos</h2>
+  <form method="POST">
+    <input type="hidden" name="form_type" value="demografia">
+    <div class="edit-section">
+      <table>
+        <tr>
+          <th>Município</th>
+          <th>Região</th>
+          <th>Tipo de deficiência</th>
+          <th>Faixa etária</th>
+          <th>Mês</th>
+          <th>Quantidade</th>
+          <th>Ação</th>
+        </tr>
+        {% for linha in demografia %}
+        <tr>
+          <td><input type="text" name="dem_municipio_{{ loop.index0 }}" value="{{ linha.municipio }}" required></td>
+          <td>
+            <select name="dem_regiao_{{ loop.index0 }}">
+              {% for opcao in regiao_opcoes %}
+                <option value="{{ opcao }}" {% if opcao == linha.regiao %}selected{% endif %}>{{ opcao }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="dem_tipo_{{ loop.index0 }}">
+              {% for opcao in tipo_deficiencia_opcoes %}
+                <option value="{{ opcao }}" {% if opcao == linha.tipo_deficiencia %}selected{% endif %}>{{ opcao }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="dem_faixa_{{ loop.index0 }}">
+              {% for faixa in faixas_opcoes %}
+                <option value="{{ faixa }}" {% if faixa == linha.faixa_etaria %}selected{% endif %}>{{ faixa }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input type="month" name="dem_mes_{{ loop.index0 }}" value="{{ linha.mes }}" required></td>
+          <td><input type="number" min="0" name="dem_quantidade_{{ loop.index0 }}" value="{{ linha.quantidade }}" required></td>
+          <td>
+            <button type="submit" name="delete_demografia" value="{{ loop.index0 }}" class="danger" onclick="return confirm('Excluir esta linha?')">Excluir</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      <button type="submit">💾 Salvar Demografia</button>
+    </div>
+  </form>
+
+  <h3>Adicionar novo dado demográfico</h3>
+  <form method="POST" class="add-form">
+    <input type="hidden" name="form_type" value="demografia">
+    <input type="hidden" name="add_demografia" value="1">
+    <p>
+      <b>Município:</b> <input type="text" name="novo_municipio" required>
+      <b>Região:</b>
+      <select name="novo_regiao">
+        {% for opcao in regiao_opcoes %}
+          <option value="{{ opcao }}">{{ opcao }}</option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      <b>Tipo de deficiência:</b>
+      <select name="novo_tipo_deficiencia">
+        {% for opcao in tipo_deficiencia_opcoes %}
+          <option value="{{ opcao }}">{{ opcao }}</option>
+        {% endfor %}
+      </select>
+      <b>Faixa etária:</b>
+      <select name="novo_faixa_etaria">
+        {% for faixa in faixas_opcoes %}
+          <option value="{{ faixa }}">{{ faixa }}</option>
+        {% endfor %}
+      </select>
+      <b>Mês:</b> <input type="month" name="novo_mes" required>
+      <b>Quantidade:</b> <input type="number" min="0" name="novo_quantidade" required>
+    </p>
+    <button type="submit">➕ Adicionar linha</button>
   </form>
 </main>
 

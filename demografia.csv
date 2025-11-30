@@ -1,17 +1,19 @@
 municipio,regiao,tipo_deficiencia,faixa_etaria,mes,quantidade
-Florianópolis,Grande Florianópolis,Deficiência física,18-29,2024-01,42
-Florianópolis,Grande Florianópolis,Deficiência intelectual,0-17,2024-01,35
-Joinville,Norte,Deficiência física,30-44,2024-02,28
-Joinville,Norte,Transtorno do Espectro Autista,0-17,2024-02,40
-Blumenau,Vale do Itajaí,Deficiência visual,45-59,2024-03,18
-Blumenau,Vale do Itajaí,Transtorno do Espectro Autista,0-17,2024-03,26
-Chapecó,Oeste,Deficiência auditiva,18-29,2024-04,22
-Chapecó,Oeste,Deficiência física,60+,2024-04,19
-Lages,Planalto Serrano,Deficiência intelectual,30-44,2024-05,17
-Lages,Planalto Serrano,Transtorno do Espectro Autista,18-29,2024-05,21
-Criciúma,Sul,Deficiência física,45-59,2024-06,24
-Criciúma,Sul,Deficiência visual,18-29,2024-06,15
-Itajaí,Litoral,Deficiência auditiva,30-44,2024-07,16
-Itajaí,Litoral,Transtorno do Espectro Autista,0-17,2024-07,27
-São José,Grande Florianópolis,Deficiência intelectual,18-29,2024-08,20
-São José,Grande Florianópolis,Deficiência física,30-44,2024-08,25
+Florianópolis,Grande Florianópolis,TEA,0-17,2024-01,40
+Florianópolis,Grande Florianópolis,Demais Def.,30-44,2024-01,22
+São José,Grande Florianópolis,Fibromialgia,45-59,2024-02,28
+Criciúma,Sul,TEA,0-17,2024-02,26
+Criciúma,Sul,Demais Def.,18-29,2024-03,24
+Tubarão,Sul,Fibromialgia,45-59,2024-03,20
+Joinville,Norte,TEA,0-17,2024-04,38
+Joinville,Norte,Demais Def.,30-44,2024-04,25
+Blumenau,Vale do Itajaí,TEA,0-17,2024-05,34
+Blumenau,Vale do Itajaí,Fibromialgia,30-44,2024-05,18
+Lages,Serra,Demais Def.,60+,2024-06,16
+Chapecó,Oeste,TEA,18-29,2024-06,21
+Chapecó,Oeste,Fibromialgia,45-59,2024-07,19
+Joaçaba,Oeste,Demais Def.,30-44,2024-07,15
+São Bento do Sul,Norte,Fibromialgia,60+,2024-08,14
+Rio do Sul,Vale do Itajaí,Demais Def.,18-29,2024-08,17
+Palhoça,Grande Florianópolis,TEA,18-29,2024-09,23
+Palhoça,Grande Florianópolis,Fibromialgia,45-59,2024-09,12
