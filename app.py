@@ -29,20 +29,26 @@ def load_dados():
     instituicoes = {}
     todos_municipios = set()
 
+    def safe_str(row, key):
+        return (row.get(key) or "").strip()
+
     if os.path.exists(CSV_FILE):
         with open(CSV_FILE, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                municipio = row["municipio"].strip()
+                municipio = safe_str(row, "municipio")
+                if not municipio:
+                    continue
                 todos_municipios.add(municipio)
 
-                if row["nome"].strip():
+                inst_nome = safe_str(row, "nome")
+                if inst_nome:
                     inst = {
-                        "nome": row["nome"].strip(),
-                        "tipo": row["tipo"].strip(),
-                        "endereco": row["endereco"].strip(),
-                        "telefone": row["telefone"].strip(),
-                        "email": row["email"].strip(),
+                        "nome": inst_nome,
+                        "tipo": safe_str(row, "tipo"),
+                        "endereco": safe_str(row, "endereco"),
+                        "telefone": safe_str(row, "telefone"),
+                        "email": safe_str(row, "email"),
                         "quantidade_ciptea": normalize_numeric_field(row.get("quantidade_ciptea", "")),
                         "quantidade_cipf": normalize_numeric_field(row.get("quantidade_cipf", "")),
                         "quantidade_passe_livre": normalize_numeric_field(row.get("quantidade_passe_livre", ""))
@@ -71,12 +77,16 @@ def load_demografia_rows():
         with open(DEMO_FILE, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                municipio = (row.get("municipio") or "").strip()
+                if not municipio:
+                    continue
+
                 linhas.append({
-                    "municipio": row.get("municipio", "").strip(),
-                    "regiao": row.get("regiao", "").strip(),
-                    "tipo_deficiencia": row.get("tipo_deficiencia", "").strip(),
-                    "faixa_etaria": row.get("faixa_etaria", "").strip(),
-                    "mes": row.get("mes", "").strip(),
+                    "municipio": municipio,
+                    "regiao": (row.get("regiao") or "").strip(),
+                    "tipo_deficiencia": (row.get("tipo_deficiencia") or "").strip(),
+                    "faixa_etaria": (row.get("faixa_etaria") or "").strip(),
+                    "mes": (row.get("mes") or "").strip(),
                     "quantidade": normalize_numeric_field(row.get("quantidade", "0")),
                 })
 
@@ -91,10 +101,15 @@ def resumir_demografia(linhas):
 
     for row in linhas:
         qtd = to_non_negative_int(row.get("quantidade", 0), 0)
-        por_deficiencia[row["tipo_deficiencia"]] = por_deficiencia.get(row["tipo_deficiencia"], 0) + qtd
-        por_faixa[row["faixa_etaria"]] = por_faixa.get(row["faixa_etaria"], 0) + qtd
-        por_regiao[row["regiao"]] = por_regiao.get(row["regiao"], 0) + qtd
-        por_mes[row["mes"]] = por_mes.get(row["mes"], 0) + qtd
+        tipo = row.get("tipo_deficiencia") or "Não informado"
+        faixa = row.get("faixa_etaria") or "Não informado"
+        regiao = row.get("regiao") or "Não informada"
+        mes = row.get("mes") or "Não informado"
+
+        por_deficiencia[tipo] = por_deficiencia.get(tipo, 0) + qtd
+        por_faixa[faixa] = por_faixa.get(faixa, 0) + qtd
+        por_regiao[regiao] = por_regiao.get(regiao, 0) + qtd
+        por_mes[mes] = por_mes.get(mes, 0) + qtd
 
     return {
         "por_deficiencia": por_deficiencia,
