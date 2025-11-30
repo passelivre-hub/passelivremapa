@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 720" role="img" aria-labelledby="title desc">
+  <title id="title">Fundação Catarinense de Educação Especial</title>
+  <desc id="desc">Logo oficial da FCEE com símbolo vermelho e tipografia preta.</desc>
+  <defs>
+    <linearGradient id="fceeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f03634"/>
+      <stop offset="100%" stop-color="#b40009"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="720" fill="#ffffff"/>
+  <circle cx="360" cy="120" r="78" fill="url(#fceeGrad)"/>
+  <path fill="url(#fceeGrad)" d="M80 292c88-64 206-100 300-72 46 14 75 47 70 86-4 34-34 61-95 76-70 18-139 16-212-5l-42 45c-13 14-34 12-40 3-6-10 0-22 9-31l46-47c-24-36-6-65 16-81l28-20z"/>
+  <text x="90" y="480" font-family="'Arial Black','Segoe UI',sans-serif" font-size="132" font-weight="800" fill="#000000">FCEE</text>
+  <text x="90" y="560" font-family="'Arial','Segoe UI',sans-serif" font-size="46" font-weight="700" fill="#000000">Fundação Catarinense de</text>
+  <text x="90" y="612" font-family="'Arial','Segoe UI',sans-serif" font-size="46" font-weight="700" fill="#000000">Educação Especial</text>
+</svg>
