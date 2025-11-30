@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Mapa Interativo SC - Credenciamentos</title>
+  <title>Painel Demográfico SC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -13,55 +13,48 @@
     /* Top-bar geral */
     .top-bar {
       position: absolute;
-      top: 10px;
+      top: 12px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      padding: 6px 20px;
+      padding: 12px 20px;
       box-shadow: 0 0 15px rgba(0,0,0,0.2);
-      border-radius: 5px;
+      border-radius: 12px;
       z-index: 1000;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 18px;
       font-size: 14px;
     }
 
-    .title { font-weight: bold; font-size: 16px; text-align: center; }
-
-    .filter-buttons {
+    .brand {
       display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
+      align-items: center;
+      gap: 10px;
     }
-    .filter-buttons button { margin: 0; padding: 4px 8px; cursor: pointer; }
 
-    .stats { font-weight: bold; text-align: center; }
+    .brand img {
+      height: 48px;
+      width: auto;
+    }
 
-    #searchBox { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; text-align: center; }
-
-    /* Legenda dentro da top-bar */
-    .legend-bar {
-      background: white;
-      padding: 6px 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.2);
-      border-radius: 5px;
-      font-size: 14px;
+    .title {
       text-align: center;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 6px;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #0f172a;
     }
-    .legend-bar i {
-      width: 18px;
-      height: 18px;
-      display: inline-block;
-      margin-right: 4px;
-      opacity: 0.7;
+
+    .subtitle { font-weight: 500; display: block; }
+
+    #searchBox {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      text-align: center;
+      min-width: 220px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
     }
 
     .demographic-panel {
@@ -110,29 +103,37 @@
 
     /* Responsivo para celular */
     @media (max-width: 600px) {
-      .top-bar { width: 95%; padding: 10px; gap: 8px; }
-      .filter-buttons { justify-content: center; }
-      #searchBox { width: 90%; }
-      .legend-bar { width: 100%; max-width: 95%; }
+      .top-bar {
+        width: 92%;
+        padding: 12px;
+        flex-direction: column;
+        text-align: center;
+      }
+      .brand img { height: 40px; }
+      #searchBox { width: 100%; }
       .demographic-panel { bottom: 5px; padding: 10px; }
     }
   </style>
 </head>
-<body>
-  <div id="map"></div>
+  <body>
+    <div id="map"></div>
 
-  <div class="top-bar">
-    <div class="title">Mapa Interativo SC - Credenciamentos</div>
-    <div class="filter-buttons">
-      <button onclick="filterMap('Todos')">Todos</button>
-      <button onclick="filterMap('CIPTEA')">CIPTEA</button>
-      <button onclick="filterMap('CIPF')">CIPF</button>
-      <button onclick="filterMap('Passe Livre')">Passe Livre</button>
+    <div class="top-bar">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='img/govsc.jpg') }}" data-fallback="{{ url_for('static', filename='img/govsc.svg') }}" alt="Governo de Santa Catarina" onerror="if(this.src!==this.dataset.fallback){this.src=this.dataset.fallback}">
+      </div>
+      <div class="title">
+        <span>Painel Demográfico SC</span><br>
+        <span class="subtitle">Fundação Catarinense de Educação Especial</span><br>
+        <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
+        <div style="margin-top:6px;">
+          <input type="text" id="searchBox" placeholder="Buscar município...">
+        </div>
+      </div>
+      <div class="brand">
+        <img src="{{ url_for('static', filename='img/fcee.jpg') }}" data-fallback="{{ url_for('static', filename='img/fcee.svg') }}" alt="FCEE" onerror="if(this.src!==this.dataset.fallback){this.src=this.dataset.fallback}">
+      </div>
     </div>
-    <div class="stats" id="stats"></div>
-    <input type="text" id="searchBox" placeholder="Buscar município...">
-    <div class="legend-bar" id="legendBar"></div>
-  </div>
 
   <div class="demographic-panel">
     <div class="demographic-grid">
@@ -151,11 +152,6 @@
         <div class="total" id="totalRegiao">-</div>
         <canvas id="chartRegiao" height="120"></canvas>
       </div>
-      <div class="card">
-        <h4>Solicitações por mês</h4>
-        <div class="total" id="totalMeses">-</div>
-        <canvas id="chartMes" height="120"></canvas>
-      </div>
     </div>
   </div>
 
@@ -164,16 +160,10 @@
     const municipiosStatus = {{ municipiosStatus | tojson }};
     const municipiosInstituicoes = {{ municipiosInstituicoes | tojson }};
     const demografia = {{ demografia | tojson }};
+    const mainGreen = '#A1C84D';
 
     function getColor(status) {
-      switch(status) {
-        case "CIPTEA": return "#2b58de";
-        case "Passe Livre": return "red";
-        case "CIPF": return "purple";
-        case "CIPTEA e Passe Livre":
-        case "Ambos": return "rgb(166,206,57)";
-        default: return "lightgray";
-      }
+      return status && status !== "Nenhum" ? mainGreen : "#e5e7eb";
     }
 
     var map = L.map('map').setView([-27.2, -50.5], 7);
@@ -192,7 +182,7 @@
             color: "#333",
             weight: 1,
             fillColor: getColor(municipiosStatus[feature.properties.name] || "Nenhum"),
-            fillOpacity: 0.6
+            fillOpacity: 0.65
           }),
           onEachFeature: (feature, layer) => {
             const nome = feature.properties.name;
@@ -225,48 +215,7 @@
           }
         }).addTo(map);
 
-        updateStats();
       });
-
-    function filterMap(status) {
-      geoLayer.eachLayer(layer => {
-        const s = layer.featureStatus;
-        let show = false;
-
-        if (status === "Todos") show = true;
-        else if (status === "Passe Livre") show = s.includes("Passe Livre");
-        else if (status === "CIPTEA") show = s.includes("CIPTEA");
-        else if (status === "CIPF") show = s.includes("CIPF");
-
-        layer.setStyle({ fillOpacity: show ? 0.6 : 0 });
-      });
-    }
-
-    function updateStats() {
-      let totalInstituicoes = 0;
-      let totalCIPTEA = 0;
-      let totalCIPF = 0;
-      let totalPasseLivre = 0;
-
-      Object.values(municipiosInstituicoes).forEach(insts => {
-        totalInstituicoes += insts.length;
-        insts.forEach(inst => {
-          totalCIPTEA += parseInt(inst.quantidade_ciptea || 0);
-          totalCIPF += parseInt(inst.quantidade_cipf || 0);
-          totalPasseLivre += parseInt(inst.quantidade_passe_livre || 0);
-        });
-      });
-
-      document.getElementById("stats").innerText =
-        `Instituições Credenciadas: ${totalInstituicoes}`;
-
-      const legendDiv = document.getElementById("legendBar");
-      legendDiv.innerHTML = `
-        <div><i style="background:${getColor('CIPTEA')}"></i> CIPTEA: ${totalCIPTEA}</div>
-        <div><i style="background:${getColor('CIPF')}"></i> CIPF: ${totalCIPF}</div>
-        <div><i style="background:${getColor('Passe Livre')}"></i> Passe Livre: ${totalPasseLivre}</div>
-      `;
-    }
 
     document.getElementById("searchBox").addEventListener("keyup", function(e) {
       if(e.key === "Enter") {
@@ -280,8 +229,6 @@
       }
     });
 
-    window.addEventListener('resize', updateStats);
-
     function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}) {
       const ctx = document.getElementById(ctxId);
       if (!ctx) return;
@@ -293,9 +240,9 @@
           datasets: [{
             label: title,
             data,
-            borderColor: '#004aad',
-            backgroundColor: 'rgba(0, 74, 173, 0.15)',
-            borderWidth: 2,
+            borderColor: mainGreen,
+            backgroundColor: 'rgba(161, 200, 77, 0.2)',
+            borderWidth: 3,
             tension: 0.3,
             fill: type === 'line'
           }]
@@ -309,22 +256,29 @@
     }
 
     function renderDemografia() {
-      const { por_deficiencia, por_faixa, por_regiao, por_mes } = demografia;
+      const { por_deficiencia, por_faixa, por_regiao } = demografia;
+
+      const ordemDeficiencia = ["TEA", "Fibromialgia", "Demais Def."];
+      const ordemRegiao = ["Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"];
 
       const totalDef = Object.values(por_deficiencia).reduce((a,b)=>a+b,0);
       const totalFaixa = Object.values(por_faixa).reduce((a,b)=>a+b,0);
       const totalRegiao = Object.values(por_regiao).reduce((a,b)=>a+b,0);
-      const totalMes = Object.values(por_mes).reduce((a,b)=>a+b,0);
 
       document.getElementById('totalDeficiencia').innerText = `${totalDef} carteiras`;
       document.getElementById('totalFaixa').innerText = `${totalFaixa} carteiras`;
       document.getElementById('totalRegiao').innerText = `${totalRegiao} carteiras`;
-      document.getElementById('totalMeses').innerText = `${totalMes} solicitações`;
 
-      renderChart('chartDeficiencia', Object.keys(por_deficiencia), Object.values(por_deficiencia), 'Por tipo');
-      renderChart('chartFaixa', Object.keys(por_faixa), Object.values(por_faixa), 'Por faixa');
-      renderChart('chartRegiao', Object.keys(por_regiao), Object.values(por_regiao), 'Por região', 'bar', { indexAxis: 'y' });
-      renderChart('chartMes', Object.keys(por_mes), Object.values(por_mes), 'Por mês', 'line');
+      const defLabels = ordemDeficiencia.filter(d => por_deficiencia[d] !== undefined);
+      renderChart('chartDeficiencia', defLabels, defLabels.map(d => por_deficiencia[d]), 'Por tipo');
+
+      const faixaLabels = Object.keys(por_faixa);
+      renderChart('chartFaixa', faixaLabels, faixaLabels.map(f => por_faixa[f]), 'Por faixa');
+
+      const extrasRegiao = Object.keys(por_regiao).filter(r => !ordemRegiao.includes(r));
+      const regiaoLabels = ordemRegiao.filter(r => por_regiao[r] !== undefined).concat(extrasRegiao);
+      renderChart('chartRegiao', regiaoLabels, regiaoLabels.map(r => por_regiao[r]), 'Por região', 'bar', { indexAxis: 'y' });
+
     }
 
     renderDemografia();

@@ -1,17 +1,5 @@
-municipio,regiao,tipo_deficiencia,faixa_etaria,mes,quantidade
-Florianópolis,Grande Florianópolis,Deficiência física,18-29,2024-01,42
-Florianópolis,Grande Florianópolis,Deficiência intelectual,0-17,2024-01,35
-Joinville,Norte,Deficiência física,30-44,2024-02,28
-Joinville,Norte,Transtorno do Espectro Autista,0-17,2024-02,40
-Blumenau,Vale do Itajaí,Deficiência visual,45-59,2024-03,18
-Blumenau,Vale do Itajaí,Transtorno do Espectro Autista,0-17,2024-03,26
-Chapecó,Oeste,Deficiência auditiva,18-29,2024-04,22
-Chapecó,Oeste,Deficiência física,60+,2024-04,19
-Lages,Planalto Serrano,Deficiência intelectual,30-44,2024-05,17
-Lages,Planalto Serrano,Transtorno do Espectro Autista,18-29,2024-05,21
-Criciúma,Sul,Deficiência física,45-59,2024-06,24
-Criciúma,Sul,Deficiência visual,18-29,2024-06,15
-Itajaí,Litoral,Deficiência auditiva,30-44,2024-07,16
-Itajaí,Litoral,Transtorno do Espectro Autista,0-17,2024-07,27
-São José,Grande Florianópolis,Deficiência intelectual,18-29,2024-08,20
-São José,Grande Florianópolis,Deficiência física,30-44,2024-08,25
+faixa_etaria,quantidade
+0-12,120
+13-17,68
+18-59,162
+60+,62

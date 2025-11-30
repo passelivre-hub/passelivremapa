@@ -144,24 +144,34 @@
   <h2>Instituições Credenciadas</h2>
 
   <form method="POST">
+    <input type="hidden" name="form_type" value="instituicoes">
     <div class="edit-section">
       <table>
         <tr>
-          <th>Município</th>
+          <th>Município (pinta de verde)</th>
+          <th>Região</th>
           <th>Nome</th>
           <th>Tipo</th>
           <th>Endereço</th>
           <th>Telefone</th>
           <th>Email</th>
-          <th>CIPTEA</th>
-          <th>CIPF</th>
-          <th>Passe Livre</th>
+          <th>Qt CIPTEA</th>
+          <th>Qt CIPF</th>
+          <th>Qt Passe Livre</th>
           <th>Ação</th>
         </tr>
         {% for municipio, insts in instituicoes.items() %}
           {% for inst in insts %}
           <tr>
             <td><input type="text" name="municipio_{{ municipio }}_{{ loop.index0 }}" value="{{ municipio }}" required></td>
+            <td>
+              <select name="regiao_{{ municipio }}_{{ loop.index0 }}">
+                <option value="">Selecione</option>
+                {% for opcao in regiao_opcoes %}
+                  <option value="{{ opcao }}" {% if opcao == inst.regiao %}selected{% endif %}>{{ opcao }}</option>
+                {% endfor %}
+              </select>
+            </td>
             <td><input type="text" name="nome_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.nome }}" required></td>
             <td>
               <select name="tipo_{{ municipio }}_{{ loop.index0 }}">
@@ -189,9 +199,17 @@
 
   <h3>Adicionar Nova Instituição</h3>
   <form method="POST" class="add-form">
+    <input type="hidden" name="form_type" value="instituicoes">
     <input type="hidden" name="add" value="1">
     <p>
       <b>Município:</b> <input type="text" name="municipio" required>
+      <b>Região:</b>
+      <select name="regiao">
+        <option value="">Selecione</option>
+        {% for opcao in regiao_opcoes %}
+          <option value="{{ opcao }}">{{ opcao }}</option>
+        {% endfor %}
+      </select>
       <b>Nome:</b> <input type="text" name="nome" required>
       <b>Tipo:</b>
       <select name="tipo" required>
@@ -211,6 +229,28 @@
       <b>Quantidade Passe Livre:</b> <input type="number" name="quantidade_passe_livre">
     </p>
     <button type="submit">➕ Adicionar Instituição</button>
+  </form>
+
+  <h2>Dados Demográficos Gerais</h2>
+  <form method="POST" class="edit-section">
+    <input type="hidden" name="form_type" value="demografia">
+    <table>
+      <tr>
+        <th>Faixa etária</th>
+        <th>Quantidade</th>
+      </tr>
+      {% set faixas_labels = ["0-12", "13-17", "18-59", "60+"] %}
+      {% for faixa in faixas_labels %}
+      {% set field_name = faixa.replace('+','mais').replace('-','_') %}
+      <tr>
+        <td>{{ faixa }}</td>
+        <td>
+          <input type="number" min="0" name="faixa_{{ field_name }}" value="{{ demografia[loop.index0].quantidade if demografia|length > loop.index0 else '' }}">
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    <button type="submit">💾 Salvar faixas etárias</button>
   </form>
 </main>
 
