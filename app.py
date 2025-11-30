@@ -10,6 +10,7 @@ ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "fcee2025")
 
 CSV_FILE = "dados.csv"
+DEMO_FILE = "demografia.csv"
 
 
 # -------- Funções utilitárias -------- #
@@ -52,6 +53,30 @@ def load_dados():
     return municipiosStatus, instituicoes
 
 
+def load_demografia():
+    por_deficiencia = {}
+    por_faixa = {}
+    por_regiao = {}
+    por_mes = {}
+
+    if os.path.exists(DEMO_FILE):
+        with open(DEMO_FILE, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                qtd = int(row.get("quantidade", 0) or 0)
+                por_deficiencia[row["tipo_deficiencia"]] = por_deficiencia.get(row["tipo_deficiencia"], 0) + qtd
+                por_faixa[row["faixa_etaria"]] = por_faixa.get(row["faixa_etaria"], 0) + qtd
+                por_regiao[row["regiao"]] = por_regiao.get(row["regiao"], 0) + qtd
+                por_mes[row["mes"]] = por_mes.get(row["mes"], 0) + qtd
+
+    return {
+        "por_deficiencia": por_deficiencia,
+        "por_faixa": por_faixa,
+        "por_regiao": por_regiao,
+        "por_mes": por_mes,
+    }
+
+
 def save_instituicoes(instituicoes):
     with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
         fieldnames = [
@@ -72,9 +97,11 @@ def save_instituicoes(instituicoes):
 @app.route('/')
 def index():
     municipiosStatus, municipiosInstituicoes = load_dados()
+    demografia = load_demografia()
     return render_template('index.html',
                            municipiosStatus=municipiosStatus,
-                           municipiosInstituicoes=municipiosInstituicoes)
+                           municipiosInstituicoes=municipiosInstituicoes,
+                           demografia=demografia)
 
 
 # --- Tela de Login ---
