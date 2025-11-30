@@ -138,24 +138,19 @@
   <div class="demographic-panel">
     <div class="demographic-grid">
       <div class="card">
-        <h4>Carteiras por tipo de deficiência</h4>
-        <div class="total" id="totalDeficiencia">-</div>
-        <canvas id="chartDeficiencia" height="120"></canvas>
-      </div>
-      <div class="card">
         <h4>Carteiras por faixa etária</h4>
         <div class="total" id="totalFaixa">-</div>
         <canvas id="chartFaixa" height="120"></canvas>
       </div>
       <div class="card">
-        <h4>Carteiras por região</h4>
-        <div class="total" id="totalRegiao">-</div>
-        <canvas id="chartRegiao" height="120"></canvas>
+        <h4>Quantidade por tipo de carteira</h4>
+        <div class="total" id="totalTipos">-</div>
+        <canvas id="chartTipos" height="120"></canvas>
       </div>
       <div class="card">
-        <h4>Solicitações por mês</h4>
-        <div class="total" id="totalMeses">-</div>
-        <canvas id="chartMes" height="120"></canvas>
+        <h4>Instituições por região</h4>
+        <div class="total" id="totalRegiao">-</div>
+        <canvas id="chartRegiao" height="120"></canvas>
       </div>
     </div>
   </div>
@@ -164,7 +159,8 @@
   <script>
     const municipiosStatus = {{ municipiosStatus | tojson }};
     const municipiosInstituicoes = {{ municipiosInstituicoes | tojson }};
-    const demografia = {{ demografia | tojson }};
+    const demografiaFaixas = {{ demografia_faixas | tojson }} || {};
+    const instituicoesResumo = {{ instituicoes_resumo | tojson }} || {};
     const mainGreen = '#A1C84D';
 
     function getColor(status) {
@@ -260,36 +256,30 @@
       });
     }
 
-    function renderDemografia() {
-      const { por_deficiencia, por_faixa, por_regiao, por_mes } = demografia;
-
-      const ordemDeficiencia = ["TEA", "Fibromialgia", "Demais Def."];
-      const ordemRegiao = ["Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"];
-
-      const totalDef = Object.values(por_deficiencia).reduce((a,b)=>a+b,0);
-      const totalFaixa = Object.values(por_faixa).reduce((a,b)=>a+b,0);
-      const totalRegiao = Object.values(por_regiao).reduce((a,b)=>a+b,0);
-      const totalMes = Object.values(por_mes).reduce((a,b)=>a+b,0);
-
-      document.getElementById('totalDeficiencia').innerText = `${totalDef} carteiras`;
+    function renderPainel() {
+      const faixas = demografiaFaixas || {};
+      const faixaLabels = Object.keys(faixas);
+      const faixaValores = faixaLabels.map(f => Number(faixas[f]) || 0);
+      const totalFaixa = faixaValores.reduce((a, b) => a + b, 0);
       document.getElementById('totalFaixa').innerText = `${totalFaixa} carteiras`;
-      document.getElementById('totalRegiao').innerText = `${totalRegiao} carteiras`;
-      document.getElementById('totalMeses').innerText = `${totalMes} solicitações`;
+      renderChart('chartFaixa', faixaLabels, faixaValores, 'Por faixa etária');
 
-      const defLabels = ordemDeficiencia.filter(d => por_deficiencia[d] !== undefined);
-      renderChart('chartDeficiencia', defLabels, defLabels.map(d => por_deficiencia[d]), 'Por tipo');
+      const totais = (instituicoesResumo.totais) || {};
+      const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
+      const tipoValores = [totais.ciptea || 0, totais.cipf || 0, totais.passe_livre || 0];
+      const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
+      document.getElementById('totalTipos').innerText = `${totalTipos} emissões`;
+      renderChart('chartTipos', tipoLabels, tipoValores, 'Por tipo de carteira');
 
-      const faixaLabels = Object.keys(por_faixa);
-      renderChart('chartFaixa', faixaLabels, faixaLabels.map(f => por_faixa[f]), 'Por faixa');
-
-      const regiaoLabels = ordemRegiao.filter(r => por_regiao[r] !== undefined);
-      renderChart('chartRegiao', regiaoLabels, regiaoLabels.map(r => por_regiao[r]), 'Por região', 'bar', { indexAxis: 'y' });
-
-      const mesesOrdenados = Object.keys(por_mes).sort();
-      renderChart('chartMes', mesesOrdenados, mesesOrdenados.map(m => por_mes[m]), 'Por mês', 'line');
+      const regioes = instituicoesResumo.regioes || {};
+      const regiaoLabels = Object.keys(regioes).length ? Object.keys(regioes) : ['Sem dados'];
+      const regiaoValores = regiaoLabels.map(r => regioes[r] || 0);
+      const totalRegiao = regiaoValores.reduce((a, b) => a + b, 0);
+      document.getElementById('totalRegiao').innerText = `${totalRegiao} instituições`;
+      renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Instituições por região', 'bar', { indexAxis: 'y' });
     }
 
-    renderDemografia();
+    renderPainel();
   </script>
 </body>
 </html>
