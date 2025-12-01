@@ -71,39 +71,17 @@ def load_dados():
     return municipiosStatus, instituicoes
 
 
-def default_faixas_demograficas():
-    return {
-        "0-12": {"ciptea": 0, "cipf": 0, "passe_livre": 0},
-        "13-17": {"ciptea": 0, "cipf": 0, "passe_livre": 0},
-        "18-59": {"ciptea": 0, "cipf": 0, "passe_livre": 0},
-        "60+": {"ciptea": 0, "cipf": 0, "passe_livre": 0},
-    }
-
-
 def load_demografia_rows():
-    faixas_padrao = default_faixas_demograficas()
+    faixas_padrao = {"0-12": 0, "13-17": 0, "18-59": 0, "60+": 0}
 
     if os.path.exists(DEMO_FILE):
         with open(DEMO_FILE, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            header = [h.strip().lower() for h in reader.fieldnames or []]
-            tem_tipos = {"ciptea", "cipf", "passe_livre"}.issubset(set(header))
-
             for row in reader:
                 faixa = (row.get("faixa_etaria") or row.get("faixa") or "").strip()
                 if faixa not in faixas_padrao:
                     continue
-
-                if tem_tipos:
-                    faixas_padrao[faixa] = {
-                        "ciptea": to_non_negative_int(row.get("ciptea", 0), 0),
-                        "cipf": to_non_negative_int(row.get("cipf", 0), 0),
-                        "passe_livre": to_non_negative_int(row.get("passe_livre", 0), 0),
-                    }
-                else:
-                    # Compatibilidade: arquivos antigos com apenas uma coluna de quantidade
-                    quantidade = to_non_negative_int(row.get("quantidade", 0), 0)
-                    faixas_padrao[faixa]["passe_livre"] = quantidade
+                faixas_padrao[faixa] = to_non_negative_int(row.get("quantidade", 0), 0)
 
     return faixas_padrao
 
@@ -133,18 +111,11 @@ def resumir_instituicoes(instituicoes):
 
 def save_demografia(linhas):
     with open(DEMO_FILE, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ["faixa_etaria", "ciptea", "cipf", "passe_livre"]
+        fieldnames = ["faixa_etaria", "quantidade"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for faixa, valores in linhas.items():
-            writer.writerow(
-                {
-                    "faixa_etaria": faixa,
-                    "ciptea": normalize_numeric_field(valores.get("ciptea", 0)),
-                    "cipf": normalize_numeric_field(valores.get("cipf", 0)),
-                    "passe_livre": normalize_numeric_field(valores.get("passe_livre", 0)),
-                }
-            )
+        for faixa, quantidade in linhas.items():
+            writer.writerow({"faixa_etaria": faixa, "quantidade": quantidade})
 
 
 def save_instituicoes(instituicoes):
@@ -264,13 +235,9 @@ def admin():
             save_instituicoes(instituicoes)
 
         if form_type == "demografia":
-            atualizadas = default_faixas_demograficas()
+            atualizadas = {}
             for faixa in faixas_opcoes:
-                atualizadas[faixa] = {
-                    "ciptea": normalize_numeric_field(request.form.get(f"faixa_{faixa}_ciptea", "0")),
-                    "cipf": normalize_numeric_field(request.form.get(f"faixa_{faixa}_cipf", "0")),
-                    "passe_livre": normalize_numeric_field(request.form.get(f"faixa_{faixa}_passe_livre", "0")),
-                }
+                atualizadas[faixa] = normalize_numeric_field(request.form.get(f"faixa_{faixa}", "0"))
 
             save_demografia(atualizadas)
 
