@@ -240,23 +240,30 @@
     <button type="submit">➕ Adicionar Instituição</button>
   </form>
 
-  <h2>Dados Demográficos Gerais</h2>
+  <h2>Dados Demográficos por tipo de carteira</h2>
   <form method="POST">
     <input type="hidden" name="form_type" value="demografia">
     <div class="edit-section">
       <table>
         <tr>
           <th>Faixa etária</th>
-          <th>Quantidade</th>
+          <th>CIPTEA</th>
+          <th>CIPF</th>
+          <th>Passe Livre</th>
         </tr>
+        {% set total_demografia = 0 %}
         {% for faixa in faixas_opcoes %}
+        {% set faixa_valores = demografia_faixas.get(faixa, {}) %}
         <tr>
           <td>{{ faixa }}</td>
-          <td><input type="number" min="0" name="faixa_{{ faixa }}" value="{{ demografia_faixas[faixa] }}" required></td>
+          <td><input type="number" min="0" name="faixa_{{ faixa }}_ciptea" value="{{ faixa_valores.get('ciptea', 0) }}" required></td>
+          <td><input type="number" min="0" name="faixa_{{ faixa }}_cipf" value="{{ faixa_valores.get('cipf', 0) }}" required></td>
+          <td><input type="number" min="0" name="faixa_{{ faixa }}_passe_livre" value="{{ faixa_valores.get('passe_livre', 0) }}" required></td>
         </tr>
+        {% set total_demografia = total_demografia + (faixa_valores.get('ciptea', 0) | int) + (faixa_valores.get('cipf', 0) | int) + (faixa_valores.get('passe_livre', 0) | int) %}
         {% endfor %}
       </table>
-      <p><strong>Total informado:</strong> {{ demografia_faixas.values() | sum }} pessoas</p>
+      <p><strong>Total informado:</strong> {{ total_demografia }} pessoas</p>
       <button type="submit">💾 Salvar Demografia</button>
     </div>
   </form>
