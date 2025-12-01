@@ -172,28 +172,30 @@
       id: 'valueLabels',
       afterDatasetsDraw(chart) {
         const { ctx, data, config } = chart;
-        const dataset = data.datasets[0];
-        const meta = chart.getDatasetMeta(0);
-        if (!dataset || !meta) return;
+        const isHorizontal = config.options.indexAxis === 'y';
 
         ctx.save();
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
 
-        meta.data.forEach((element, index) => {
-          const value = dataset.data[index];
-          if (value === null || value === undefined) return;
+        data.datasets.forEach((dataset, datasetIndex) => {
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (!dataset || !meta) return;
 
-          const isHorizontal = config.options.indexAxis === 'y';
-          if (isHorizontal) {
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(value, element.x + 12, element.y);
-          } else {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(value, element.x, element.y - 8);
-          }
+          meta.data.forEach((element, index) => {
+            const value = dataset.data[index];
+            if (value === null || value === undefined) return;
+
+            if (isHorizontal) {
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(value, element.x + 12, element.y + (datasetIndex * 14));
+            } else {
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(value, element.x, element.y - 8 - (datasetIndex * 12));
+            }
+          });
         });
 
         ctx.restore();
@@ -269,23 +271,26 @@
       }
     });
 
-    function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}) {
+    function renderChart(ctxId, labels, datasets, title, type = 'bar', chartOptions = {}) {
       const ctx = document.getElementById(ctxId);
       if (!ctx) return;
+
+      const parsedDatasets = (datasets || []).map(ds => ({
+        label: ds.label || title,
+        data: ds.data || [],
+        borderColor: ds.borderColor || mainGreen,
+        backgroundColor: ds.backgroundColor || 'rgba(161, 200, 77, 0.2)',
+        borderWidth: ds.borderWidth ?? 3,
+        tension: ds.tension ?? 0.3,
+        fill: ds.fill ?? (type === 'line'),
+        stack: ds.stack,
+      }));
 
       return new Chart(ctx, {
         type,
         data: {
           labels,
-          datasets: [{
-            label: title,
-            data,
-            borderColor: mainGreen,
-            backgroundColor: 'rgba(161, 200, 77, 0.2)',
-            borderWidth: 3,
-            tension: 0.3,
-            fill: type === 'line'
-          }]
+          datasets: parsedDatasets
         },
         options: Object.assign({
           responsive: true,
@@ -300,24 +305,46 @@
     function renderPainel() {
       const faixas = demografiaFaixas || {};
       const faixaLabels = Object.keys(faixas);
-      const faixaValores = faixaLabels.map(f => Number(faixas[f]) || 0);
-      const totalFaixa = faixaValores.reduce((a, b) => a + b, 0);
+      const tipos = [
+        { key: 'ciptea', label: 'CIPTEA', border: '#4b7bec', background: 'rgba(75, 123, 236, 0.25)' },
+        { key: 'cipf', label: 'CIPF', border: '#20bf6b', background: 'rgba(32, 191, 107, 0.25)' },
+        { key: 'passe_livre', label: 'Passe Livre', border: '#f7b731', background: 'rgba(247, 183, 49, 0.25)' },
+      ];
+
+      const faixaDatasets = tipos.map(({ key, label, border, background }) => ({
+        label,
+        data: faixaLabels.map(f => Number((faixas[f] || {})[key]) || 0),
+        borderColor: border,
+        backgroundColor: background,
+        stack: 'faixa',
+      }));
+
+      const totalFaixa = faixaLabels.reduce((total, faixa) => {
+        const valores = faixas[faixa] || {};
+        return total + tipos.reduce((acc, tipo) => acc + Number(valores[tipo.key] || 0), 0);
+      }, 0);
+
       document.getElementById('totalFaixa').innerText = `${totalFaixa} carteiras`;
-      renderChart('chartFaixa', faixaLabels, faixaValores, 'Por faixa etária');
+      renderChart('chartFaixa', faixaLabels, faixaDatasets, 'Por faixa etária', 'bar', {
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      });
 
       const totais = (instituicoesResumo.totais) || {};
       const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
       const tipoValores = [totais.ciptea || 0, totais.cipf || 0, totais.passe_livre || 0];
       const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
       document.getElementById('totalTipos').innerText = `${totalTipos} emissões`;
-      renderChart('chartTipos', tipoLabels, tipoValores, 'Por tipo de carteira');
+      renderChart('chartTipos', tipoLabels, [{ data: tipoValores }], 'Por tipo de carteira');
 
       const regioes = instituicoesResumo.regioes || {};
       const regiaoLabels = Object.keys(regioes).length ? Object.keys(regioes) : ['Sem dados'];
       const regiaoValores = regiaoLabels.map(r => regioes[r] || 0);
       const totalRegiao = regiaoValores.reduce((a, b) => a + b, 0);
       document.getElementById('totalRegiao').innerText = `${totalRegiao} carteiras`;
-      renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Carteiras por região', 'bar', {
+      renderChart('chartRegiao', regiaoLabels, [{ data: regiaoValores }], 'Carteiras por região', 'bar', {
         indexAxis: 'y',
         scales: { x: { beginAtZero: true } },
         layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } }
