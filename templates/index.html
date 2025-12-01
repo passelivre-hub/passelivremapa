@@ -46,7 +46,12 @@
       color: #0f172a;
     }
 
-    .subtitle { font-weight: 500; display: block; }
+    .title .subtitle {
+      font-weight: 500;
+      display: block;
+      margin-top: 2px;
+      line-height: 1.2;
+    }
 
     #searchBox {
       padding: 6px 10px;
@@ -123,8 +128,8 @@
         <img src="{{ url_for('static', filename='img/govsc.svg') }}" alt="Governo de Santa Catarina">
       </div>
       <div class="title">
-        <span>Painel Demográfico SC</span><br>
-        <span class="subtitle">Fundação Catarinense de Educação Especial</span><br>
+        <span>Painel Demográfico SC</span>
+        <span class="subtitle">Fundação Catarinense de Educação Especial</span>
         <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
         <div style="margin-top:6px;">
           <input type="text" id="searchBox" placeholder="Buscar município...">
@@ -148,7 +153,7 @@
         <canvas id="chartTipos" height="120"></canvas>
       </div>
       <div class="card">
-        <h4>Instituições por região</h4>
+        <h4>Carteiras por região</h4>
         <div class="total" id="totalRegiao">-</div>
         <canvas id="chartRegiao" height="120"></canvas>
       </div>
@@ -162,6 +167,40 @@
     const demografiaFaixas = {{ demografia_faixas | tojson }} || {};
     const instituicoesResumo = {{ instituicoes_resumo | tojson }} || {};
     const mainGreen = '#A1C84D';
+
+    const valueLabelsPlugin = {
+      id: 'valueLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx, data, config } = chart;
+        const dataset = data.datasets[0];
+        const meta = chart.getDatasetMeta(0);
+        if (!dataset || !meta) return;
+
+        ctx.save();
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+
+        meta.data.forEach((element, index) => {
+          const value = dataset.data[index];
+          if (value === null || value === undefined) return;
+
+          const isHorizontal = config.options.indexAxis === 'y';
+          if (isHorizontal) {
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(value, element.x + 12, element.y);
+          } else {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(value, element.x, element.y - 8);
+          }
+        });
+
+        ctx.restore();
+      }
+    };
+
+    Chart.register(valueLabelsPlugin);
 
     function getColor(status) {
       return status && status !== "Nenhum" ? mainGreen : "#e5e7eb";
@@ -251,7 +290,9 @@
         options: Object.assign({
           responsive: true,
           plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
+          layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
+          scales: { y: { beginAtZero: true } },
+          indexAxis: 'x'
         }, chartOptions)
       });
     }
@@ -275,8 +316,12 @@
       const regiaoLabels = Object.keys(regioes).length ? Object.keys(regioes) : ['Sem dados'];
       const regiaoValores = regiaoLabels.map(r => regioes[r] || 0);
       const totalRegiao = regiaoValores.reduce((a, b) => a + b, 0);
-      document.getElementById('totalRegiao').innerText = `${totalRegiao} instituições`;
-      renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Instituições por região', 'bar', { indexAxis: 'y' });
+      document.getElementById('totalRegiao').innerText = `${totalRegiao} carteiras`;
+      renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Carteiras por região', 'bar', {
+        indexAxis: 'y',
+        scales: { x: { beginAtZero: true } },
+        layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } }
+      });
     }
 
     renderPainel();

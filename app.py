@@ -92,12 +92,19 @@ def resumir_instituicoes(instituicoes):
 
     for insts in instituicoes.values():
         for inst in insts:
-            totais["ciptea"] += to_non_negative_int(inst.get("quantidade_ciptea", 0), 0)
-            totais["cipf"] += to_non_negative_int(inst.get("quantidade_cipf", 0), 0)
-            totais["passe_livre"] += to_non_negative_int(inst.get("quantidade_passe_livre", 0), 0)
+            qt_ciptea = to_non_negative_int(inst.get("quantidade_ciptea", 0), 0)
+            qt_cipf = to_non_negative_int(inst.get("quantidade_cipf", 0), 0)
+            qt_passe = to_non_negative_int(inst.get("quantidade_passe_livre", 0), 0)
 
-            regiao = (inst.get("regiao") or "Não informada").strip() or "Não informada"
-            regioes[regiao] = regioes.get(regiao, 0) + 1
+            totais["ciptea"] += qt_ciptea
+            totais["cipf"] += qt_cipf
+            totais["passe_livre"] += qt_passe
+
+            regiao = (inst.get("regiao") or "").strip()
+            if not regiao or regiao.lower() in {"não informada", "nao informada", "não informado", "nao informado"}:
+                continue
+
+            regioes[regiao] = regioes.get(regiao, 0) + qt_ciptea + qt_cipf + qt_passe
 
     return {"totais": totais, "regioes": regioes}
 
