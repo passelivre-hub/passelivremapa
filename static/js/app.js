@@ -1,5 +1,6 @@
 const mainGreen = '#A1C84D';
-const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+'];
+const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
+const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
 
 function toNonNegativeInt(value, fallback = 0) {
   const parsed = parseInt(String(value ?? '').trim(), 10);
@@ -55,10 +56,10 @@ function buildDados(rows) {
 }
 
 function buildDemografia(rows) {
-  const faixasSet = new Set();
+  const faixasSet = new Set(Object.keys(defaultFaixas));
   const tiposSet = new Set();
   const porTipo = {};
-  const totalPorFaixa = {};
+  const totalPorFaixa = { ...defaultFaixas };
 
   rows.forEach((row) => {
     const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
@@ -70,7 +71,7 @@ function buildDemografia(rows) {
     faixasSet.add(faixa);
     tiposSet.add(tipo);
 
-    if (!porTipo[tipo]) porTipo[tipo] = {};
+    if (!porTipo[tipo]) porTipo[tipo] = { ...defaultFaixas };
     porTipo[tipo][faixa] = (porTipo[tipo][faixa] || 0) + quantidade;
     totalPorFaixa[faixa] = (totalPorFaixa[faixa] || 0) + quantidade;
   });
