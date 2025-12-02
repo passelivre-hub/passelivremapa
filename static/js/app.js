@@ -1,5 +1,11 @@
 const mainGreen = '#A1C84D';
 const defaultFaixas = { '0-12': 0, '13-17': 0, '18-59': 0, '60+': 0 };
+const defaultFaixaRanges = [
+  { label: '0-12', start: 0, end: 12 },
+  { label: '13-17', start: 13, end: 17 },
+  { label: '18-59', start: 18, end: 59 },
+  { label: '60+', start: 60, end: Infinity },
+];
 
 function toNonNegativeInt(value, fallback = 0) {
   const parsed = parseInt(String(value ?? '').trim(), 10);
@@ -54,16 +60,90 @@ function buildDados(rows) {
   return { municipiosStatus, municipiosInstituicoes: instituicoes };
 }
 
-function buildDemografia(rows) {
-  const faixas = { ...defaultFaixas };
+function parseFaixaRange(faixa) {
+  const normalized = faixa.replace(/\s+/g, '');
+  const betweenMatch = normalized.match(/^(\d+)-(\d+)$/);
+  if (betweenMatch) {
+    return { start: Number(betweenMatch[1]), end: Number(betweenMatch[2]) };
+  }
 
-  rows.forEach((row) => {
-    const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
-    if (!faixa || !(faixa in faixas)) return;
-    faixas[faixa] = normalizeNumericField(row.quantidade);
+  const plusMatch = normalized.match(/^(\d+)\+$/);
+  if (plusMatch) {
+    return { start: Number(plusMatch[1]), end: Infinity };
+  }
+
+  return null;
+}
+
+function splitQuantidadeAcrossDefaultRanges(range, quantidade) {
+  const faixasValores = defaultFaixaRanges.map(({ label }) => ({ label, valor: 0 }));
+  if (!range) return faixasValores;
+
+  if (!Number.isFinite(range.end)) {
+    const faixaDestino = defaultFaixaRanges.find((faixa) => range.start >= faixa.start && range.start <= faixa.end);
+    if (faixaDestino) {
+      const entry = faixasValores.find((f) => f.label === faixaDestino.label);
+      entry.valor += quantidade;
+    }
+    return faixasValores;
+  }
+
+  const totalIntervalo = range.end - range.start + 1;
+  if (totalIntervalo <= 0) return faixasValores;
+
+  const rawShares = defaultFaixaRanges.map((faixa) => {
+    const overlapStart = Math.max(range.start, faixa.start);
+    const overlapEnd = Math.min(range.end, faixa.end);
+    const hasOverlap = overlapStart <= overlapEnd;
+    const overlapLength = hasOverlap ? overlapEnd - overlapStart + 1 : 0;
+    const valor = (quantidade * overlapLength) / totalIntervalo;
+    return { label: faixa.label, raw: valor };
   });
 
-  return faixas;
+  const roundedShares = rawShares.map((share) => ({
+    label: share.label,
+    valor: Math.round(share.raw),
+  }));
+
+  const roundedTotal = roundedShares.reduce((sum, item) => sum + item.valor, 0);
+  const diff = quantidade - roundedTotal;
+  if (diff !== 0) {
+    const adjustmentTarget = rawShares.reduce((max, current) => (current.raw > max.raw ? current : max), rawShares[0]);
+    const targetEntry = roundedShares.find((share) => share.label === adjustmentTarget.label);
+    if (targetEntry) targetEntry.valor += diff;
+  }
+
+  roundedShares.forEach(({ label, valor }) => {
+    const entry = faixasValores.find((f) => f.label === label);
+    entry.valor += Math.max(valor, 0);
+  });
+
+  return faixasValores;
+}
+
+function buildDemografia(rows) {
+  const faixas = { ...defaultFaixas };
+  const porTipo = {};
+
+  rows.forEach((row) => {
+    const faixaLabel = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
+    const faixaRange = faixaLabel ? parseFaixaRange(faixaLabel) : null;
+    const quantidade = normalizeNumericField(row.quantidade);
+    if (!faixaRange || quantidade <= 0) return;
+
+    const tipo = safeStr(row, 'tipo_deficiencia') || 'Outros';
+    if (!porTipo[tipo]) {
+      porTipo[tipo] = { ...defaultFaixas };
+    }
+
+    const distribuicoes = splitQuantidadeAcrossDefaultRanges(faixaRange, quantidade);
+    distribuicoes.forEach(({ label, valor }) => {
+      faixas[label] = (faixas[label] || 0) + valor;
+      porTipo[tipo][label] = (porTipo[tipo][label] || 0) + valor;
+    });
+  });
+
+  return { totais: faixas, porTipo };
 }
 
 function resumirInstituicoes(instituicoes) {
@@ -96,28 +176,33 @@ function registerValueLabelsPlugin() {
   const valueLabelsPlugin = {
     id: 'valueLabels',
     afterDatasetsDraw(chart) {
-      const { ctx, data, config } = chart;
-      const dataset = data.datasets[0];
-      const meta = chart.getDatasetMeta(0);
-      if (!dataset || !meta) return;
+      const { ctx, data, options } = chart;
+      if (!data?.datasets?.length) return;
 
       ctx.save();
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
 
-      meta.data.forEach((element, index) => {
-        const value = dataset.data[index];
-        if (value === null || value === undefined) return;
+      const indexAxis = options.indexAxis || 'x';
+      const xScale = chart.scales.x;
+      const yScale = chart.scales.y;
 
-        const isHorizontal = config.options.indexAxis === 'y';
-        if (isHorizontal) {
+      data.labels.forEach((label, index) => {
+        const total = data.datasets.reduce((sum, ds) => sum + (Number(ds.data?.[index]) || 0), 0);
+        if (total === null || total === undefined) return;
+
+        if (indexAxis === 'y') {
+          const y = yScale.getPixelForValue(index);
+          const x = xScale.getPixelForValue(total) + 12;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(value, element.x + 12, element.y);
+          ctx.fillText(total, x, y);
         } else {
+          const x = xScale.getPixelForValue(index);
+          const y = yScale.getPixelForValue(total) - 8;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillText(value, element.x, element.y - 8);
+          ctx.fillText(total, x, y);
         }
       });
 
@@ -128,25 +213,34 @@ function registerValueLabelsPlugin() {
   Chart.register(valueLabelsPlugin);
 }
 
-function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}) {
+function renderChart(ctxId, labels, dataOrDatasets, title, type = 'bar', chartOptions = {}) {
   const ctx = document.getElementById(ctxId);
   if (!ctx) return null;
 
-  return new Chart(ctx, {
-    type,
-    data: {
-      labels,
-      datasets: [
+  const isDatasetArray =
+    Array.isArray(dataOrDatasets) &&
+    dataOrDatasets.length > 0 &&
+    dataOrDatasets.every((entry) => entry && typeof entry === 'object' && Array.isArray(entry.data));
+
+  const datasets = isDatasetArray
+    ? dataOrDatasets
+    : [
         {
           label: title,
-          data,
+          data: Array.isArray(dataOrDatasets) ? dataOrDatasets : [],
           borderColor: mainGreen,
           backgroundColor: 'rgba(161, 200, 77, 0.2)',
           borderWidth: 3,
           tension: 0.3,
           fill: type === 'line',
         },
-      ],
+      ];
+
+  return new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets,
     },
     options: {
       responsive: true,
@@ -159,16 +253,49 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
   });
 }
 
-function renderPainel(demografiaFaixas, instituicoesResumo) {
+function renderPainel(demografia, instituicoesResumo) {
   registerValueLabelsPlugin();
 
-  const faixas = demografiaFaixas || {};
-  const faixaLabels = Object.keys(faixas);
+  const faixas = demografia?.totais || defaultFaixas;
+  const faixaLabels = defaultFaixaRanges.map((faixa) => faixa.label);
   const faixaValores = faixaLabels.map((f) => Number(faixas[f]) || 0);
   const totalFaixa = faixaValores.reduce((a, b) => a + b, 0);
   const totalFaixaEl = document.getElementById('totalFaixa');
   if (totalFaixaEl) totalFaixaEl.innerText = `${totalFaixa} carteiras`;
-  renderChart('chartFaixa', faixaLabels, faixaValores, 'Por faixa etária');
+  const faixasPorTipo = demografia?.porTipo || {};
+  const tiposDeficiencia = Object.keys(faixasPorTipo);
+  const palette = [
+    '#A1C84D',
+    '#5E854E',
+    '#84B18B',
+    '#3E6654',
+    '#C4DFA0',
+    '#4A5A30',
+  ];
+  const stackedDatasets = tiposDeficiencia.length
+    ? tiposDeficiencia.map((tipo, idx) => ({
+        label: tipo,
+        data: faixaLabels.map((label) => faixasPorTipo[tipo][label] || 0),
+        backgroundColor: palette[idx % palette.length],
+        borderWidth: 1,
+        borderColor: palette[idx % palette.length],
+      }))
+    : [
+        {
+          label: 'Total',
+          data: faixaValores,
+          backgroundColor: 'rgba(161, 200, 77, 0.2)',
+          borderColor: mainGreen,
+          borderWidth: 3,
+        },
+      ];
+  renderChart('chartFaixa', faixaLabels, stackedDatasets, 'Por faixa etária', 'bar', {
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, beginAtZero: true },
+    },
+    plugins: { legend: { display: true } },
+  });
 
   const totais = instituicoesResumo?.totais || {};
   const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
