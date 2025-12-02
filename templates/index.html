@@ -82,6 +82,7 @@
       gap: 16px;
       padding: 16px;
       box-sizing: border-box;
+      height: calc(100vh - 96px);
       min-height: calc(100vh - 96px);
     }
 
@@ -92,6 +93,7 @@
       box-shadow: 0 16px 40px rgba(15, 43, 99, 0.12);
       border: 1px solid #e2e8f0;
       background: white;
+      min-height: calc(100vh - 112px);
     }
 
     #map { height: 100%; width: 100%; min-height: calc(100vh - 120px); }
@@ -107,6 +109,7 @@
       gap: 14px;
       overflow-y: auto;
       height: 100%;
+      min-height: calc(100vh - 112px);
     }
 
     .section-title {
@@ -208,6 +211,7 @@
       afterDatasetsDraw(chart) {
         const { ctx, data, config } = chart;
         const stacked = (config.options.scales?.x?.stacked || config.options.scales?.y?.stacked);
+        const isHorizontal = config.options.indexAxis === 'y';
         ctx.save();
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
@@ -220,18 +224,17 @@
             const value = dataset.data[index];
             if (value === null || value === undefined) return;
 
-          const isHorizontal = config.options.indexAxis === 'y';
-          if (isHorizontal) {
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(value, element.x + 10, element.y);
-          } else {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = stacked ? 'middle' : 'bottom';
-            const offsetY = stacked ? 0 : 8;
-            ctx.fillText(value, element.x, element.y - offsetY);
-          }
-        });
+            if (isHorizontal) {
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(value, element.x + 12, element.y);
+            } else {
+              ctx.textAlign = 'center';
+              ctx.textBaseline = stacked ? 'middle' : 'bottom';
+              const offsetY = stacked ? 0 : 8;
+              ctx.fillText(value, element.x, element.y - offsetY);
+            }
+          });
         });
 
         ctx.restore();
