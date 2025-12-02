@@ -59,8 +59,9 @@ function buildDemografia(rows) {
 
   rows.forEach((row) => {
     const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
-    if (!faixa || !(faixa in faixas)) return;
-    faixas[faixa] = normalizeNumericField(row.quantidade);
+    if (!faixa) return;
+    const quantidade = normalizeNumericField(row.quantidade);
+    faixas[faixa] = (faixas[faixa] || 0) + quantidade;
   });
 
   return faixas;
