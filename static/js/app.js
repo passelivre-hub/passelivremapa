@@ -1,5 +1,6 @@
 const mainGreen = '#A1C84D';
-const defaultFaixas = { '0-12': 0, '13-17': 0, '18-59': 0, '60+': 0 };
+const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
+const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
 
 function toNonNegativeInt(value, fallback = 0) {
   const parsed = parseInt(String(value ?? '').trim(), 10);
@@ -55,15 +56,37 @@ function buildDados(rows) {
 }
 
 function buildDemografia(rows) {
-  const faixas = { ...defaultFaixas };
+  const faixasSet = new Set(Object.keys(defaultFaixas));
+  const tiposSet = new Set();
+  const porTipo = {};
+  const totalPorFaixa = { ...defaultFaixas };
 
   rows.forEach((row) => {
     const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
-    if (!faixa || !(faixa in faixas)) return;
-    faixas[faixa] = normalizeNumericField(row.quantidade);
+    const tipo = safeStr(row, 'tipo_deficiencia') || safeStr(row, 'tipo');
+    const quantidade = normalizeNumericField(row.quantidade);
+
+    if (!faixa || !tipo) return;
+
+    faixasSet.add(faixa);
+    tiposSet.add(tipo);
+
+    if (!porTipo[tipo]) porTipo[tipo] = { ...defaultFaixas };
+    porTipo[tipo][faixa] = (porTipo[tipo][faixa] || 0) + quantidade;
+    totalPorFaixa[faixa] = (totalPorFaixa[faixa] || 0) + quantidade;
   });
 
-  return faixas;
+  const faixaLabels = [
+    ...faixaOrder.filter((faixa) => faixasSet.has(faixa)),
+    ...[...faixasSet].filter((faixa) => !faixaOrder.includes(faixa)).sort(),
+  ];
+
+  return {
+    faixaLabels,
+    tipos: [...tiposSet].sort(),
+    porTipo,
+    totalPorFaixa,
+  };
 }
 
 function resumirInstituicoes(instituicoes) {
@@ -97,28 +120,31 @@ function registerValueLabelsPlugin() {
     id: 'valueLabels',
     afterDatasetsDraw(chart) {
       const { ctx, data, config } = chart;
-      const dataset = data.datasets[0];
-      const meta = chart.getDatasetMeta(0);
-      if (!dataset || !meta) return;
+      if (!data?.datasets?.length) return;
 
       ctx.save();
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
 
-      meta.data.forEach((element, index) => {
-        const value = dataset.data[index];
-        if (value === null || value === undefined) return;
+      data.datasets.forEach((dataset, datasetIndex) => {
+        const meta = chart.getDatasetMeta(datasetIndex);
+        if (!meta) return;
 
-        const isHorizontal = config.options.indexAxis === 'y';
-        if (isHorizontal) {
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(value, element.x + 12, element.y);
-        } else {
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(value, element.x, element.y - 8);
-        }
+        meta.data.forEach((element, index) => {
+          const value = dataset.data[index];
+          if (value === null || value === undefined) return;
+
+          const isHorizontal = config.options.indexAxis === 'y';
+          if (isHorizontal) {
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(value, element.x + 12, element.y);
+          } else {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(value, element.x, element.y - 8);
+          }
+        });
       });
 
       ctx.restore();
@@ -132,21 +158,36 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
   const ctx = document.getElementById(ctxId);
   if (!ctx) return null;
 
-  return new Chart(ctx, {
-    type,
-    data: {
-      labels,
-      datasets: [
+  const isPrebuiltDataset =
+    Array.isArray(data) && data.length && typeof data[0] === 'object' && data[0].data !== undefined;
+
+  const datasets = isPrebuiltDataset
+    ? data
+    : [
         {
           label: title,
           data,
           borderColor: mainGreen,
           backgroundColor: 'rgba(161, 200, 77, 0.2)',
           borderWidth: 3,
-          tension: 0.3,
+          tension: type === 'line' ? 0.3 : 0,
           fill: type === 'line',
         },
-      ],
+      ];
+
+  datasets.forEach((dataset) => {
+    if (!dataset.borderColor) dataset.borderColor = mainGreen;
+    if (!dataset.backgroundColor) dataset.backgroundColor = 'rgba(161, 200, 77, 0.15)';
+    if (dataset.borderWidth === undefined) dataset.borderWidth = 3;
+    if (dataset.tension === undefined) dataset.tension = type === 'line' ? 0.3 : 0;
+    if (dataset.fill === undefined) dataset.fill = type === 'line';
+  });
+
+  return new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets,
     },
     options: {
       responsive: true,
@@ -159,16 +200,29 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
   });
 }
 
-function renderPainel(demografiaFaixas, instituicoesResumo) {
+function renderPainel(demografia, instituicoesResumo) {
   registerValueLabelsPlugin();
 
-  const faixas = demografiaFaixas || {};
-  const faixaLabels = Object.keys(faixas);
-  const faixaValores = faixaLabels.map((f) => Number(faixas[f]) || 0);
+  const demografiaData = demografia || { faixaLabels: [], tipos: [], porTipo: {}, totalPorFaixa: {} };
+  const faixaLabels = demografiaData.faixaLabels;
+  const faixaValores = faixaLabels.map((faixa) => Number(demografiaData.totalPorFaixa[faixa]) || 0);
   const totalFaixa = faixaValores.reduce((a, b) => a + b, 0);
   const totalFaixaEl = document.getElementById('totalFaixa');
   if (totalFaixaEl) totalFaixaEl.innerText = `${totalFaixa} carteiras`;
-  renderChart('chartFaixa', faixaLabels, faixaValores, 'Por faixa etária');
+
+  const tipoColors = ['#A1C84D', '#5B8DEF', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6'];
+  const datasets = demografiaData.tipos.map((tipo, index) => ({
+    label: tipo,
+    data: faixaLabels.map((faixa) => demografiaData?.porTipo?.[tipo]?.[faixa] || 0),
+    backgroundColor: tipoColors[index % tipoColors.length],
+    borderColor: tipoColors[index % tipoColors.length],
+  }));
+
+  renderChart('chartFaixa', faixaLabels, datasets, 'Por faixa etária', 'bar', {
+    plugins: { legend: { display: true, position: 'top' } },
+    scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } },
+    layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
+  });
 
   const totais = instituicoesResumo?.totais || {};
   const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
@@ -222,6 +276,16 @@ function buildPopupHtml(nome, status, municipiosInstituicoes) {
   return popupHtml;
 }
 
+function resolveAssetPath(fileName) {
+  const base = window.location.pathname.endsWith('/index.html')
+    ? window.location.pathname.replace(/\/index\.html$/, '/')
+    : window.location.pathname.endsWith('/')
+      ? window.location.pathname
+      : `${window.location.pathname.replace(/[^/]*$/, '')}`;
+
+  return `${base}${fileName}`;
+}
+
 async function setupMap(municipiosStatus, municipiosInstituicoes) {
   const map = L.map('map').setView([-27.2, -50.5], 7);
 
@@ -229,7 +293,7 @@ async function setupMap(municipiosStatus, municipiosInstituicoes) {
     attribution: '&copy; OpenStreetMap',
   }).addTo(map);
 
-  const response = await fetch('sc_municipios.geojson');
+  const response = await fetch(resolveAssetPath('sc_municipios.geojson'));
   const data = await response.json();
 
   const geoLayer = L.geoJson(data, {
@@ -281,7 +345,7 @@ function parseCsv(text) {
 }
 
 async function fetchCsvData(path) {
-  const response = await fetch(path);
+  const response = await fetch(resolveAssetPath(path));
   if (!response.ok) {
     throw new Error(`Não foi possível carregar ${path}`);
   }
@@ -306,7 +370,27 @@ async function init() {
     setupSearch(map, geoLayer);
   } catch (error) {
     console.error('Erro ao carregar dados', error);
-    alert('Não foi possível carregar os dados. Verifique se os arquivos CSV e GeoJSON estão acessíveis.');
+    const existingNotice = document.getElementById('loadError');
+    if (!existingNotice) {
+      const notice = document.createElement('div');
+      notice.id = 'loadError';
+      notice.style.position = 'absolute';
+      notice.style.top = '20px';
+      notice.style.left = '50%';
+      notice.style.transform = 'translateX(-50%)';
+      notice.style.background = '#fee2e2';
+      notice.style.color = '#991b1b';
+      notice.style.padding = '12px 16px';
+      notice.style.border = '1px solid #fecaca';
+      notice.style.borderRadius = '10px';
+      notice.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)';
+      notice.style.zIndex = '1200';
+      notice.innerHTML = `
+        <strong>Erro ao carregar dados.</strong><br>
+        Confirme que os arquivos CSV e GeoJSON estão publicados na mesma pasta do <code>index.html</code> (GitHub Pages: fonte "Root").
+      `;
+      document.body.appendChild(notice);
+    }
   }
 }
 
