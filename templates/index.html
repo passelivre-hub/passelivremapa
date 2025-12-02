@@ -82,6 +82,7 @@
       gap: 16px;
       padding: 16px;
       box-sizing: border-box;
+      min-height: calc(100vh - 96px);
     }
 
     .map-wrapper {
@@ -105,6 +106,7 @@
       flex-direction: column;
       gap: 14px;
       overflow-y: auto;
+      height: 100%;
     }
 
     .section-title {
@@ -218,19 +220,18 @@
             const value = dataset.data[index];
             if (value === null || value === undefined) return;
 
-            const isHorizontal = config.options.indexAxis === 'y';
-            const pos = element.tooltipPosition();
-            if (isHorizontal) {
-              ctx.textAlign = 'left';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(value, pos.x + 10, pos.y);
-            } else {
-              ctx.textAlign = 'center';
-              ctx.textBaseline = stacked ? 'middle' : 'bottom';
-              const offsetY = stacked ? 0 : 8;
-              ctx.fillText(value, pos.x, pos.y - offsetY);
-            }
-          });
+          const isHorizontal = config.options.indexAxis === 'y';
+          if (isHorizontal) {
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(value, element.x + 10, element.y);
+          } else {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = stacked ? 'middle' : 'bottom';
+            const offsetY = stacked ? 0 : 8;
+            ctx.fillText(value, element.x, element.y - offsetY);
+          }
+        });
         });
 
         ctx.restore();
