@@ -1,4 +1,5 @@
-const mainGreen = '#A1C84D';
+const mainGreen = '#1B5E20';
+const accentRed = '#BF1E2E';
 const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
 const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
 
@@ -18,6 +19,7 @@ function safeStr(row, key) {
 function buildDados(rows) {
   const instituicoes = {};
   const todosMunicipios = new Set();
+  const municipioRegiao = {};
 
   rows.forEach((row) => {
     const municipio = safeStr(row, 'municipio');
@@ -27,10 +29,12 @@ function buildDados(rows) {
     const instNome = safeStr(row, 'nome');
     if (!instNome) return;
 
+    const tipoNormalizado = safeStr(row, 'tipo').toLowerCase() === 'ambos' ? 'Todos' : safeStr(row, 'tipo');
     const inst = {
       nome: instNome,
       regiao: safeStr(row, 'regiao'),
-      tipo: safeStr(row, 'tipo'),
+      municipio,
+      tipo: tipoNormalizado,
       endereco: safeStr(row, 'endereco'),
       telefone: safeStr(row, 'telefone'),
       email: safeStr(row, 'email'),
@@ -43,16 +47,24 @@ function buildDados(rows) {
       instituicoes[municipio] = [];
     }
     instituicoes[municipio].push(inst);
+
+    if (inst.regiao && !municipioRegiao[municipio]) {
+      municipioRegiao[municipio] = inst.regiao;
+    }
   });
 
   const municipiosStatus = {};
   todosMunicipios.forEach((municipio) => {
     const insts = instituicoes[municipio] || [];
     const tipos = [...new Set(insts.map((inst) => inst.tipo).filter(Boolean))];
-    municipiosStatus[municipio] = tipos.length ? tipos.sort().join(' e ') : 'Nenhum';
+    municipiosStatus[municipio] = tipos.includes('Todos')
+      ? 'Todos'
+      : tipos.length
+        ? tipos.sort().join(' e ')
+        : 'Nenhum';
   });
 
-  return { municipiosStatus, municipiosInstituicoes: instituicoes };
+  return { municipiosStatus, municipiosInstituicoes: instituicoes, municipioRegiao };
 }
 
 function buildDemografia(rows) {
@@ -92,6 +104,7 @@ function buildDemografia(rows) {
 function resumirInstituicoes(instituicoes) {
   const totais = { ciptea: 0, cipf: 0, passe_livre: 0 };
   const regioes = {};
+  const municipios = {};
 
   Object.values(instituicoes).forEach((insts) => {
     insts.forEach((inst) => {
@@ -109,10 +122,44 @@ function resumirInstituicoes(instituicoes) {
       }
 
       regioes[regiao] = (regioes[regiao] || 0) + qtCiptea + qtCipf + qtPasse;
+
+      const municipio = inst.municipio;
+      if (municipio) {
+        if (!municipios[municipio]) {
+          municipios[municipio] = { ciptea: 0, cipf: 0, passe_livre: 0 };
+        }
+        municipios[municipio].ciptea += qtCiptea;
+        municipios[municipio].cipf += qtCipf;
+        municipios[municipio].passe_livre += qtPasse;
+      }
     });
   });
 
-  return { totais, regioes };
+  return { totais, regioes, municipios };
+}
+
+function resumirPorMunicipio(instituicoes) {
+  const resumo = {};
+
+  Object.entries(instituicoes).forEach(([municipio, insts]) => {
+    const dados = {
+      regiao: insts.find((inst) => inst.regiao)?.regiao || '',
+      instituicoes: insts.length,
+      ciptea: 0,
+      cipf: 0,
+      passe_livre: 0,
+    };
+
+    insts.forEach((inst) => {
+      dados.ciptea += toNonNegativeInt(inst.quantidade_ciptea, 0);
+      dados.cipf += toNonNegativeInt(inst.quantidade_cipf, 0);
+      dados.passe_livre += toNonNegativeInt(inst.quantidade_passe_livre, 0);
+    });
+
+    resumo[municipio] = dados;
+  });
+
+  return resumo;
 }
 
 function registerValueLabelsPlugin() {
@@ -168,7 +215,7 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
           label: title,
           data,
           borderColor: mainGreen,
-          backgroundColor: 'rgba(161, 200, 77, 0.2)',
+          backgroundColor: 'rgba(27, 94, 32, 0.1)',
           borderWidth: 3,
           tension: type === 'line' ? 0.3 : 0,
           fill: type === 'line',
@@ -200,7 +247,7 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
   });
 }
 
-function renderPainel(demografia, instituicoesResumo) {
+function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
   registerValueLabelsPlugin();
 
   const demografiaData = demografia || { faixaLabels: [], tipos: [], porTipo: {}, totalPorFaixa: {} };
@@ -210,7 +257,7 @@ function renderPainel(demografia, instituicoesResumo) {
   const totalFaixaEl = document.getElementById('totalFaixa');
   if (totalFaixaEl) totalFaixaEl.innerText = `${totalFaixa} carteiras`;
 
-  const tipoColors = ['#A1C84D', '#5B8DEF', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6'];
+  const tipoColors = ['#1B5E20', '#0EA5E9', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6'];
   const datasets = demografiaData.tipos.map((tipo, index) => ({
     label: tipo,
     data: faixaLabels.map((faixa) => demografiaData?.porTipo?.[tipo]?.[faixa] || 0),
@@ -243,6 +290,92 @@ function renderPainel(demografia, instituicoesResumo) {
     scales: { x: { beginAtZero: true } },
     layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
   });
+
+  if (municipiosResumo) {
+    const totalInst = Object.values(municipiosResumo).reduce((acc, item) => acc + (item?.instituicoes || 0), 0);
+    const municipiosAtivos = Object.keys(municipiosResumo).length;
+    const totalCarteiras = Object.values(municipiosResumo).reduce(
+      (acc, item) => acc + (item.ciptea || 0) + (item.cipf || 0) + (item.passe_livre || 0),
+      0,
+    );
+
+    const instLabel = document.getElementById('totalInstituicoes');
+    if (instLabel) instLabel.innerText = `${totalInst} instituições`;
+    const munLabel = document.getElementById('totalMunicipios');
+    if (munLabel) munLabel.innerText = `${municipiosAtivos} municípios`;
+    const totalCarteirasEl = document.getElementById('totalCarteiras');
+    if (totalCarteirasEl) totalCarteirasEl.innerText = `${totalCarteiras} carteiras`;
+
+    const listaMunicipios = Object.entries(municipiosResumo).map(([municipio, valores]) => ({
+      municipio,
+      total: (valores.ciptea || 0) + (valores.cipf || 0) + (valores.passe_livre || 0),
+      ...valores,
+    }));
+
+    const top10 = listaMunicipios
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    renderChart(
+      'chartTopMunicipios',
+      top10.map((m) => m.municipio),
+      [
+        {
+          label: 'CIPTEA',
+          data: top10.map((m) => m.ciptea || 0),
+          backgroundColor: '#1B5E20',
+        },
+        {
+          label: 'CIPF',
+          data: top10.map((m) => m.cipf || 0),
+          backgroundColor: '#0EA5E9',
+        },
+        {
+          label: 'Passe Livre',
+          data: top10.map((m) => m.passe_livre || 0),
+          backgroundColor: accentRed,
+        },
+      ],
+      'Top municípios',
+      'bar',
+      {
+        plugins: { legend: { display: true, position: 'top' } },
+        indexAxis: 'y',
+        scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
+      },
+    );
+
+    const tbody = document.getElementById('municipioTableBody');
+    if (tbody) {
+      tbody.innerHTML = listaMunicipios
+        .sort((a, b) => b.total - a.total)
+        .map(
+          (m) => `
+            <tr>
+              <td>${m.municipio}</td>
+              <td>${m.regiao || '-'}</td>
+              <td class="center">${m.instituicoes || 0}</td>
+              <td class="center">${m.ciptea || 0}</td>
+              <td class="center">${m.cipf || 0}</td>
+              <td class="center">${m.passe_livre || 0}</td>
+              <td class="center">${m.total}</td>
+            </tr>
+          `,
+        )
+        .join('');
+
+      const filtro = document.getElementById('municipioFilter');
+      if (filtro) {
+        filtro.addEventListener('input', () => {
+          const termo = filtro.value.toLowerCase();
+          tbody.querySelectorAll('tr').forEach((tr) => {
+            tr.style.display = tr.textContent.toLowerCase().includes(termo) ? '' : 'none';
+          });
+        });
+      }
+    }
+  }
 }
 
 function getColor(status) {
@@ -251,8 +384,8 @@ function getColor(status) {
 
 function buildPopupHtml(nome, status, municipiosInstituicoes) {
   let adjustedStatus = status;
-  if (status === 'Passe Livre' || status === 'CIPTEA e Passe Livre' || status === 'Ambos') {
-    adjustedStatus = status === 'Passe Livre' ? 'CIPF e Passe Livre' : 'CIPTEA, Passe Livre e CIPF';
+  if (status === 'Passe Livre' || status === 'CIPTEA e Passe Livre' || status === 'Todos') {
+    adjustedStatus = status === 'Passe Livre' ? 'CIPF e Passe Livre' : 'CIPTEA, CIPF e Passe Livre';
   }
 
   let popupHtml = `<b>${nome}</b><br>Status: ${adjustedStatus}`;
@@ -361,10 +494,11 @@ async function init() {
     ]);
 
     const { municipiosStatus, municipiosInstituicoes } = buildDados(dadosRows);
+    const municipiosResumo = resumirPorMunicipio(municipiosInstituicoes);
     const demografiaFaixas = buildDemografia(demografiaRows || []);
     const instituicoesResumo = resumirInstituicoes(municipiosInstituicoes);
 
-    renderPainel(demografiaFaixas, instituicoesResumo);
+    renderPainel(demografiaFaixas, instituicoesResumo, municipiosResumo);
 
     const { map, geoLayer } = await setupMap(municipiosStatus, municipiosInstituicoes);
     setupSearch(map, geoLayer);

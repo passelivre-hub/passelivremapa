@@ -164,7 +164,7 @@
           {% for municipio, insts in instituicoes.items() %}
             {% for inst in insts %}
             <tr>
-              <td><input type="text" name="municipio_{{ municipio }}_{{ loop.index0 }}" value="{{ municipio }}" required></td>
+              <td><input type="text" name="municipio_{{ municipio }}_{{ loop.index0 }}" value="{{ municipio }}" list="municipiosLista" required></td>
               <td>
                 <select name="regiao_{{ municipio }}_{{ loop.index0 }}">
                   <option value="">Selecione</option>
@@ -179,7 +179,7 @@
                   <option value="CIPTEA" {% if inst.tipo == "CIPTEA" %}selected{% endif %}>CIPTEA</option>
                   <option value="CIPF" {% if inst.tipo == "CIPF" %}selected{% endif %}>CIPF</option>
                   <option value="Passe Livre" {% if inst.tipo == "Passe Livre" %}selected{% endif %}>Passe Livre</option>
-                  <option value="Ambos" {% if inst.tipo == "Ambos" %}selected{% endif %}>Ambos</option>
+                  <option value="Todos" {% if inst.tipo == "Todos" %}selected{% endif %}>Todos</option>
                 </select>
               </td>
               <td><input type="text" name="endereco_{{ municipio }}_{{ loop.index0 }}" value="{{ inst.endereco }}" required></td>
@@ -210,7 +210,7 @@
     <input type="hidden" name="form_type" value="instituicoes">
     <input type="hidden" name="add" value="1">
     <p>
-      <b>Município:</b> <input type="text" name="municipio" required>
+      <b>Município:</b> <input type="text" name="municipio" list="municipiosLista" required>
       <b>Região:</b>
       <select name="regiao" required>
         <option value="">Selecione</option>
@@ -224,7 +224,7 @@
         <option value="CIPTEA">CIPTEA</option>
         <option value="CIPF">CIPF</option>
         <option value="Passe Livre">Passe Livre</option>
-        <option value="Ambos">Ambos</option>
+        <option value="Todos">Todos</option>
       </select>
     </p>
     <p>
@@ -292,11 +292,41 @@
       <button type="submit">💾 Salvar Demografia</button>
     </div>
   </form>
+
+  <datalist id="municipiosLista">
+    {% for nome in municipios_lista %}
+      <option value="{{ nome }}">{{ nome }}</option>
+    {% endfor %}
+  </datalist>
 </main>
 
 <footer>
   © 2025 Fundação Catarinense de Educação Especial - Painel de Administração
 </footer>
+
+<script>
+  const municipioRegiaoMap = {{ municipio_regiao | tojson }};
+
+  function bindAutoRegiao(inputSelector, selectResolver) {
+    document.querySelectorAll(inputSelector).forEach((input) => {
+      input.addEventListener('change', () => {
+        const municipio = input.value.trim();
+        const regiao = municipioRegiaoMap[municipio];
+        const select = selectResolver(input);
+        if (regiao && select) {
+          select.value = regiao;
+        }
+      });
+    });
+  }
+
+  bindAutoRegiao('input[name="municipio"]', () => document.querySelector('select[name="regiao"]'));
+
+  bindAutoRegiao('input[name^="municipio_"]', (input) => {
+    const [_, muniKey, idx] = input.name.split('_');
+    return document.querySelector(`select[name="regiao_${muniKey}_${idx}"]`);
+  });
+</script>
 
 </body>
 </html>

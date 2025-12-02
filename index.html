@@ -6,140 +6,111 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; }
+    :root {
+      --gov-red: #bf1e2e;
+      --gov-green: #1b5e20;
+      --gov-blue: #003c6c;
+      --surface: #f8fafc;
+      --shadow: 0 12px 30px rgba(0,0,0,0.12);
+    }
+
+    body, html { margin: 0; padding: 0; height: 100%; font-family: "Segoe UI", Arial, sans-serif; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%); color: #0f172a; }
     #map { height: 100vh; width: 100%; }
 
-    /* Top-bar geral */
     .top-bar {
       position: absolute;
-      top: 12px;
+      top: 14px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      padding: 12px 20px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.2);
-      border-radius: 12px;
+      padding: 12px 18px;
+      box-shadow: var(--shadow);
+      border-radius: 14px;
       z-index: 1000;
       display: flex;
       align-items: center;
       gap: 18px;
       font-size: 14px;
+      border: 1px solid #e2e8f0;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand img { height: 46px; width: auto; border-radius: 6px; }
 
-    .brand img {
-      height: 48px;
-      width: auto;
-    }
+    .title { text-align: center; font-size: 16px; font-weight: 700; line-height: 1.3; color: #0f172a; }
+    .title .subtitle { font-weight: 500; display: block; margin-top: 2px; line-height: 1.2; }
 
-    .title {
-      text-align: center;
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.3;
-      color: #0f172a;
-    }
+    #searchBox { padding: 7px 12px; border-radius: 10px; border: 1px solid #cbd5e1; min-width: 240px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); }
 
-    .title .subtitle {
-      font-weight: 500;
-      display: block;
-      margin-top: 2px;
-      line-height: 1.2;
-    }
+    .legend { position: absolute; top: 90px; left: 12px; background: white; padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow); z-index: 1000; border: 1px solid #e2e8f0; font-size: 13px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .legend-color { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #0f172a22; }
 
-    #searchBox {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #d1d5db;
-      text-align: center;
-      min-width: 220px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
-    }
+    .demographic-panel { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.96); padding: 16px; box-shadow: var(--shadow); border-radius: 14px; z-index: 1000; width: 95%; max-width: 1250px; backdrop-filter: blur(4px); border: 1px solid #e2e8f0; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .metric-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); }
+    .metric-card h4 { margin: 0; font-size: 13px; color: var(--gov-blue); text-transform: uppercase; letter-spacing: 0.02em; }
+    .metric-card .metric { font-size: 22px; font-weight: 800; margin-top: 4px; color: var(--gov-green); }
 
-    .demographic-panel {
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255,255,255,0.95);
-      padding: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.25);
-      border-radius: 10px;
-      z-index: 1000;
-      width: 94%;
-      max-width: 1200px;
-      backdrop-filter: blur(4px);
-    }
+    .demographic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: stretch; }
+    .card { background: #f7f9fb; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); }
+    .card h4 { margin: 0 0 6px 0; color: var(--gov-blue); font-size: 14px; }
+    .card .total { font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 6px; }
 
-    .demographic-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 12px;
-      align-items: stretch;
-    }
+    .table-card { margin-top: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); }
+    .table-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .table-header h4 { margin: 0; color: var(--gov-blue); }
+    .table-header input { padding: 8px 10px; border-radius: 8px; border: 1px solid #cbd5e1; min-width: 220px; }
 
-    .card {
-      background: #f7f9fb;
-      border: 1px solid #e3e7ec;
-      border-radius: 8px;
-      padding: 10px 12px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-    }
-
-    .card h4 {
-      margin: 0 0 6px 0;
-      color: #004aad;
-      font-size: 14px;
-    }
-
-    .card .total {
-      font-size: 20px;
-      font-weight: bold;
-      color: #0f172a;
-    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 13px; }
+    th { background: #f1f5f9; text-align: left; }
+    td.center { text-align: center; }
 
     canvas { background: white; border-radius: 6px; }
 
-    /* Responsivo para celular */
-    @media (max-width: 600px) {
-      .top-bar {
-        width: 92%;
-        padding: 12px;
-        flex-direction: column;
-        text-align: center;
-      }
+    @media (max-width: 760px) {
+      .top-bar { width: 92%; flex-direction: column; text-align: center; padding: 12px; }
       .brand img { height: 40px; }
       #searchBox { width: 100%; }
-      .demographic-panel { bottom: 5px; padding: 10px; }
+      .legend { left: 50%; transform: translateX(-50%); top: 76px; width: calc(100% - 40px); }
+      .demographic-panel { bottom: 6px; padding: 12px; }
     }
   </style>
 </head>
-  <body>
-    <div id="map"></div>
+<body>
+  <div id="map"></div>
 
-    <div class="top-bar">
-      <div class="brand">
-        <img src="static/img/govsc.svg" alt="Governo de Santa Catarina">
-      </div>
-      <div class="title">
-        <span>Painel Demográfico SC</span>
-        <span class="subtitle">Fundação Catarinense de Educação Especial</span>
-        <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
-        <div style="margin-top:6px;">
-          <input type="text" id="searchBox" placeholder="Buscar município...">
-        </div>
-      </div>
-      <div class="brand">
-        <img src="static/img/fcee.svg" alt="FCEE">
+  <div class="top-bar">
+    <div class="brand">
+      <img src="static/img/govsc.jpg" alt="Governo de Santa Catarina">
+    </div>
+    <div class="title">
+      <span>Painel Demográfico SC</span>
+      <span class="subtitle">Fundação Catarinense de Educação Especial</span>
+      <span class="subtitle">Carteiras CIPTEA, CIPF e Passe Livre Intermunicipal</span>
+      <div style="margin-top:8px;">
+        <input type="text" id="searchBox" placeholder="Buscar município...">
       </div>
     </div>
+    <div class="brand">
+      <img src="static/img/fcee.jpg" alt="FCEE">
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background: var(--gov-green);"></div> Possui instituição credenciada</div>
+    <div class="legend-item"><div class="legend-color" style="background: #e5e7eb;"></div> Sem credenciamento</div>
+    <div style="font-size:11px; color:#475569; margin-top:4px;">Envie os arquivos de logo como <b>static/img/govsc.jpg</b> e <b>static/img/fcee.jpg</b>.</div>
+  </div>
 
   <div class="demographic-panel">
+    <div class="summary-grid">
+      <div class="metric-card"><h4>Total de carteiras</h4><div class="metric" id="totalCarteiras">-</div></div>
+      <div class="metric-card"><h4>Instituições credenciadas</h4><div class="metric" id="totalInstituicoes">-</div></div>
+      <div class="metric-card"><h4>Municípios atendidos</h4><div class="metric" id="totalMunicipios">-</div></div>
+    </div>
+
     <div class="demographic-grid">
       <div class="card">
         <h4>Carteiras por faixa etária</h4>
@@ -156,6 +127,32 @@
         <div class="total" id="totalRegiao">-</div>
         <canvas id="chartRegiao" height="120"></canvas>
       </div>
+      <div class="card">
+        <h4>Top 10 municípios por emissões</h4>
+        <div class="total">Distribuição por tipo</div>
+        <canvas id="chartTopMunicipios" height="120"></canvas>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <h4>Totais por município e tipo de carteira</h4>
+        <input type="text" id="municipioFilter" placeholder="Filtrar município">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Município</th>
+            <th>Região</th>
+            <th>Instituições</th>
+            <th>CIPTEA</th>
+            <th>CIPF</th>
+            <th>Passe Livre</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="municipioTableBody"></tbody>
+      </table>
     </div>
   </div>
 
