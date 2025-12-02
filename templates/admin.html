@@ -246,17 +246,49 @@
     <div class="edit-section">
       <table>
         <tr>
+          <th>Tipo de deficiência</th>
           <th>Faixa etária</th>
           <th>Quantidade</th>
+          <th>Ação</th>
         </tr>
-        {% for faixa in faixas_opcoes %}
+        {% if demografia_registros %}
+          {% for registro in demografia_registros %}
+          <tr>
+            <td><input type="text" name="tipo_deficiencia[]" value="{{ registro.tipo_deficiencia }}" required></td>
+            <td>
+              <select name="faixa_etaria[]" required>
+                <option value="">Selecione</option>
+                {% for faixa in faixas_opcoes %}
+                  <option value="{{ faixa }}" {% if faixa == registro.faixa_etaria %}selected{% endif %}>{{ faixa }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="number" min="0" name="quantidade[]" value="{{ registro.quantidade }}" required></td>
+            <td style="text-align:center;">
+              <input type="checkbox" name="delete_demografia" value="{{ loop.index0 }}"> Remover
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4" style="text-align:center; color:#666;">Nenhuma faixa cadastrada. Insira novos dados abaixo.</td>
+          </tr>
+        {% endif %}
         <tr>
-          <td>{{ faixa }}</td>
-          <td><input type="number" min="0" name="faixa_{{ faixa }}" value="{{ demografia_faixas[faixa] }}" required></td>
+          <td><input type="text" name="tipo_deficiencia[]" placeholder="Novo tipo" ></td>
+          <td>
+            <select name="faixa_etaria[]">
+              <option value="">Selecione</option>
+              {% for faixa in faixas_opcoes %}
+                <option value="{{ faixa }}">{{ faixa }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input type="number" min="0" name="quantidade[]" placeholder="0"></td>
+          <td style="text-align:center; color:#666;">Nova linha</td>
         </tr>
-        {% endfor %}
       </table>
-      <p><strong>Total informado:</strong> {{ demografia_faixas.values() | sum }} pessoas</p>
+      <p>Use o campo em branco para adicionar um novo registro ou marque "Remover" para excluir um existente.</p>
       <button type="submit">💾 Salvar Demografia</button>
     </div>
   </form>
