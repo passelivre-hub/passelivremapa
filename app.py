@@ -25,10 +25,18 @@ def normalize_numeric_field(value):
     return str(to_non_negative_int(value, 0))
 
 
+def normalize_tipo(valor):
+    tipo = (valor or "").strip()
+    if tipo.lower() == "ambos":
+        return "Todos"
+    return tipo
+
+
 def load_dados():
     instituicoes = {}
     todos_municipios = set()
     municipios_totais = {}
+    municipio_regiao = {}
 
     def safe_str(row, key):
         return (row.get(key) or "").strip()
@@ -48,10 +56,14 @@ def load_dados():
                     qt_cipf = to_non_negative_int(row.get("quantidade_cipf", 0), 0)
                     qt_passe = to_non_negative_int(row.get("quantidade_passe_livre", 0), 0)
 
+                    regiao = safe_str(row, "regiao")
+                    if regiao:
+                        municipio_regiao[municipio] = regiao
+
                     inst = {
                         "nome": inst_nome,
-                        "regiao": safe_str(row, "regiao"),
-                        "tipo": safe_str(row, "tipo"),
+                        "regiao": regiao,
+                        "tipo": normalize_tipo(safe_str(row, "tipo")),
                         "endereco": safe_str(row, "endereco"),
                         "telefone": safe_str(row, "telefone"),
                         "email": safe_str(row, "email"),
@@ -71,11 +83,13 @@ def load_dados():
         tipos = set(inst["tipo"] for inst in insts)
         if not tipos:
             status = "Nenhum"
+        elif "Todos" in tipos:
+            status = "Todos"
         else:
             status = " e ".join(sorted(tipos))
         municipiosStatus[municipio] = status
 
-    return municipiosStatus, instituicoes, municipios_totais
+    return municipiosStatus, instituicoes, municipios_totais, municipio_regiao
 
 
 def load_demografia_rows():
@@ -146,6 +160,28 @@ def resumir_instituicoes(instituicoes):
     return {"totais": totais, "regioes": regioes}
 
 
+def resumir_por_municipio(instituicoes):
+    resumo = {}
+    for municipio, insts in instituicoes.items():
+        dados = {
+            "regiao": "",
+            "instituicoes": len(insts),
+            "ciptea": 0,
+            "cipf": 0,
+            "passe_livre": 0,
+        }
+
+        for inst in insts:
+            dados["regiao"] = inst.get("regiao") or dados["regiao"]
+            dados["ciptea"] += to_non_negative_int(inst.get("quantidade_ciptea", 0), 0)
+            dados["cipf"] += to_non_negative_int(inst.get("quantidade_cipf", 0), 0)
+            dados["passe_livre"] += to_non_negative_int(inst.get("quantidade_passe_livre", 0), 0)
+
+        resumo[municipio] = dados
+
+    return resumo
+
+
 def save_demografia(linhas):
     with open(DEMO_FILE, 'w', newline='', encoding='utf-8') as f:
         fieldnames = ["tipo_deficiencia", "faixa_etaria", "quantidade"]
@@ -178,15 +214,20 @@ def save_instituicoes(instituicoes):
 
 @app.route('/')
 def index():
-    municipiosStatus, municipiosInstituicoes, municipios_totais = load_dados()
+    municipiosStatus, municipiosInstituicoes, municipios_totais, municipio_regiao = load_dados()
     demografia_registros = load_demografia_rows()
     instituicoes_resumo = resumir_instituicoes(municipiosInstituicoes)
-    return render_template('index.html',
-                           municipiosStatus=municipiosStatus,
-                           municipiosInstituicoes=municipiosInstituicoes,
-                           municipiosTotais=municipios_totais,
-                           demografia_distribuicao=preparar_demografia_por_deficiencia(demografia_registros),
-                           instituicoes_resumo=instituicoes_resumo)
+    municipios_resumo = resumir_por_municipio(municipiosInstituicoes)
+    return render_template(
+        'index.html',
+        municipiosStatus=municipiosStatus,
+        municipiosInstituicoes=municipiosInstituicoes,
+        municipiosTotais=municipios_totais,
+        demografia_distribuicao=preparar_demografia_por_deficiencia(demografia_registros),
+        instituicoes_resumo=instituicoes_resumo,
+        municipios_resumo=municipios_resumo,
+        municipio_regiao=municipio_regiao,
+    )
 
 
 # --- Tela de Login ---
@@ -218,7 +259,7 @@ def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    municipiosStatus, instituicoes, _ = load_dados()
+    municipiosStatus, instituicoes, _, municipio_regiao = load_dados()
     demografia_registros = load_demografia_rows()
 
     regiao_opcoes = [
@@ -248,7 +289,7 @@ def admin():
                     if municipio in instituicoes and idx < len(instituicoes[municipio]):
                         instituicoes[municipio][idx]["nome"] = request.form[key].strip()
                         instituicoes[municipio][idx]["regiao"] = request.form.get(f"regiao_{municipio}_{idx}", "").strip()
-                        instituicoes[municipio][idx]["tipo"] = request.form.get(f"tipo_{municipio}_{idx}", "").strip()
+                        instituicoes[municipio][idx]["tipo"] = normalize_tipo(request.form.get(f"tipo_{municipio}_{idx}", ""))
                         instituicoes[municipio][idx]["endereco"] = request.form.get(f"endereco_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["telefone"] = request.form.get(f"telefone_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["email"] = request.form.get(f"email_{municipio}_{idx}", "").strip()
@@ -262,7 +303,7 @@ def admin():
                     inst = {
                         "nome": request.form.get("nome", "").strip(),
                         "regiao": request.form.get("regiao", "").strip(),
-                        "tipo": request.form.get("tipo", "").strip(),
+                        "tipo": normalize_tipo(request.form.get("tipo", "")),
                         "endereco": request.form.get("endereco", "").strip(),
                         "telefone": request.form.get("telefone", "").strip(),
                         "email": request.form.get("email", "").strip(),
@@ -300,11 +341,16 @@ def admin():
 
         return redirect(url_for('admin'))
 
-    return render_template("admin.html", instituicoes=instituicoes,
-                           demografia_registros=demografia_registros,
-                           regiao_opcoes=regiao_opcoes,
-                           faixas_opcoes=faixas_opcoes,
-                           instituicoes_resumo=resumir_instituicoes(instituicoes))
+    return render_template(
+        "admin.html",
+        instituicoes=instituicoes,
+        demografia_registros=demografia_registros,
+        regiao_opcoes=regiao_opcoes,
+        faixas_opcoes=faixas_opcoes,
+        instituicoes_resumo=resumir_instituicoes(instituicoes),
+        municipio_regiao=municipio_regiao,
+        municipios_lista=sorted(municipio_regiao.keys()),
+    )
 
 
 @app.route('/sc_municipios.geojson')
