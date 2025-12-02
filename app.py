@@ -28,6 +28,7 @@ def normalize_numeric_field(value):
 def load_dados():
     instituicoes = {}
     todos_municipios = set()
+    municipios_totais = {}
 
     def safe_str(row, key):
         return (row.get(key) or "").strip()
@@ -43,6 +44,10 @@ def load_dados():
 
                 inst_nome = safe_str(row, "nome")
                 if inst_nome:
+                    qt_ciptea = to_non_negative_int(row.get("quantidade_ciptea", 0), 0)
+                    qt_cipf = to_non_negative_int(row.get("quantidade_cipf", 0), 0)
+                    qt_passe = to_non_negative_int(row.get("quantidade_passe_livre", 0), 0)
+
                     inst = {
                         "nome": inst_nome,
                         "regiao": safe_str(row, "regiao"),
@@ -50,13 +55,15 @@ def load_dados():
                         "endereco": safe_str(row, "endereco"),
                         "telefone": safe_str(row, "telefone"),
                         "email": safe_str(row, "email"),
-                        "quantidade_ciptea": normalize_numeric_field(row.get("quantidade_ciptea", "")),
-                        "quantidade_cipf": normalize_numeric_field(row.get("quantidade_cipf", "")),
-                        "quantidade_passe_livre": normalize_numeric_field(row.get("quantidade_passe_livre", ""))
+                        "quantidade_ciptea": normalize_numeric_field(qt_ciptea),
+                        "quantidade_cipf": normalize_numeric_field(qt_cipf),
+                        "quantidade_passe_livre": normalize_numeric_field(qt_passe)
                     }
                     if municipio not in instituicoes:
                         instituicoes[municipio] = []
                     instituicoes[municipio].append(inst)
+
+                    municipios_totais[municipio] = municipios_totais.get(municipio, 0) + qt_ciptea + qt_cipf + qt_passe
 
     municipiosStatus = {}
     for municipio in todos_municipios:
@@ -68,22 +75,52 @@ def load_dados():
             status = " e ".join(sorted(tipos))
         municipiosStatus[municipio] = status
 
-    return municipiosStatus, instituicoes
+    return municipiosStatus, instituicoes, municipios_totais
 
 
 def load_demografia_rows():
-    faixas_padrao = {"0-12": 0, "13-17": 0, "18-59": 0, "60+": 0}
-
+    registros = []
     if os.path.exists(DEMO_FILE):
         with open(DEMO_FILE, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                tipo = (row.get("tipo_deficiencia") or "").strip()
                 faixa = (row.get("faixa_etaria") or row.get("faixa") or "").strip()
-                if faixa not in faixas_padrao:
-                    continue
-                faixas_padrao[faixa] = to_non_negative_int(row.get("quantidade", 0), 0)
+                quantidade = to_non_negative_int(row.get("quantidade", 0), 0)
 
-    return faixas_padrao
+                if not tipo or not faixa:
+                    continue
+
+                registros.append({
+                    "tipo_deficiencia": tipo,
+                    "faixa_etaria": faixa,
+                    "quantidade": quantidade
+                })
+
+    return registros
+
+
+def preparar_demografia_por_deficiencia(registros):
+    faixas_padrao = ["0-12", "13-17", "18-59", "60+"]
+    tipos = sorted({r["tipo_deficiencia"] for r in registros})
+    estrutura = {tipo: {faixa: 0 for faixa in faixas_padrao} for tipo in tipos}
+
+    total = 0
+    for registro in registros:
+        tipo = registro["tipo_deficiencia"]
+        faixa = registro["faixa_etaria"]
+        if faixa not in faixas_padrao:
+            continue
+        quantidade = to_non_negative_int(registro["quantidade"], 0)
+        estrutura[tipo][faixa] = estrutura[tipo].get(faixa, 0) + quantidade
+        total += quantidade
+
+    return {
+        "faixas": faixas_padrao,
+        "tipos": tipos,
+        "data": estrutura,
+        "total": total
+    }
 
 
 def resumir_instituicoes(instituicoes):
@@ -92,23 +129,34 @@ def resumir_instituicoes(instituicoes):
 
     for insts in instituicoes.values():
         for inst in insts:
-            totais["ciptea"] += to_non_negative_int(inst.get("quantidade_ciptea", 0), 0)
-            totais["cipf"] += to_non_negative_int(inst.get("quantidade_cipf", 0), 0)
-            totais["passe_livre"] += to_non_negative_int(inst.get("quantidade_passe_livre", 0), 0)
+            qt_ciptea = to_non_negative_int(inst.get("quantidade_ciptea", 0), 0)
+            qt_cipf = to_non_negative_int(inst.get("quantidade_cipf", 0), 0)
+            qt_passe = to_non_negative_int(inst.get("quantidade_passe_livre", 0), 0)
 
-            regiao = (inst.get("regiao") or "Não informada").strip() or "Não informada"
-            regioes[regiao] = regioes.get(regiao, 0) + 1
+            totais["ciptea"] += qt_ciptea
+            totais["cipf"] += qt_cipf
+            totais["passe_livre"] += qt_passe
+
+            regiao = (inst.get("regiao") or "").strip()
+            if not regiao or regiao.lower() in {"não informada", "nao informada", "não informado", "nao informado"}:
+                continue
+
+            regioes[regiao] = regioes.get(regiao, 0) + qt_ciptea + qt_cipf + qt_passe
 
     return {"totais": totais, "regioes": regioes}
 
 
 def save_demografia(linhas):
     with open(DEMO_FILE, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ["faixa_etaria", "quantidade"]
+        fieldnames = ["tipo_deficiencia", "faixa_etaria", "quantidade"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for faixa, quantidade in linhas.items():
-            writer.writerow({"faixa_etaria": faixa, "quantidade": quantidade})
+        for linha in linhas:
+            writer.writerow({
+                "tipo_deficiencia": linha.get("tipo_deficiencia", ""),
+                "faixa_etaria": linha.get("faixa_etaria", ""),
+                "quantidade": normalize_numeric_field(linha.get("quantidade", 0))
+            })
 
 
 def save_instituicoes(instituicoes):
@@ -130,13 +178,14 @@ def save_instituicoes(instituicoes):
 
 @app.route('/')
 def index():
-    municipiosStatus, municipiosInstituicoes = load_dados()
-    demografia_faixas = load_demografia_rows()
+    municipiosStatus, municipiosInstituicoes, municipios_totais = load_dados()
+    demografia_registros = load_demografia_rows()
     instituicoes_resumo = resumir_instituicoes(municipiosInstituicoes)
     return render_template('index.html',
                            municipiosStatus=municipiosStatus,
                            municipiosInstituicoes=municipiosInstituicoes,
-                           demografia_faixas=demografia_faixas,
+                           municipiosTotais=municipios_totais,
+                           demografia_distribuicao=preparar_demografia_por_deficiencia(demografia_registros),
                            instituicoes_resumo=instituicoes_resumo)
 
 
@@ -169,8 +218,8 @@ def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    municipiosStatus, instituicoes = load_dados()
-    demografia_faixas = load_demografia_rows()
+    municipiosStatus, instituicoes, _ = load_dados()
+    demografia_registros = load_demografia_rows()
 
     regiao_opcoes = [
         "Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"
@@ -228,16 +277,31 @@ def admin():
             save_instituicoes(instituicoes)
 
         if form_type == "demografia":
-            atualizadas = {}
-            for faixa in faixas_opcoes:
-                atualizadas[faixa] = normalize_numeric_field(request.form.get(f"faixa_{faixa}", "0"))
+            tipos = request.form.getlist("tipo_deficiencia[]")
+            faixas = request.form.getlist("faixa_etaria[]")
+            quantidades = request.form.getlist("quantidade[]")
+            deletions = set(request.form.getlist("delete_demografia"))
 
-            save_demografia(atualizadas)
+            linhas = []
+            for idx, (tipo, faixa, quantidade) in enumerate(zip(tipos, faixas, quantidades)):
+                if str(idx) in deletions:
+                    continue
+                tipo = (tipo or "").strip()
+                faixa = (faixa or "").strip()
+                if not tipo or not faixa:
+                    continue
+                linhas.append({
+                    "tipo_deficiencia": tipo,
+                    "faixa_etaria": faixa,
+                    "quantidade": quantidade
+                })
+
+            save_demografia(linhas)
 
         return redirect(url_for('admin'))
 
     return render_template("admin.html", instituicoes=instituicoes,
-                           demografia_faixas=demografia_faixas,
+                           demografia_registros=demografia_registros,
                            regiao_opcoes=regiao_opcoes,
                            faixas_opcoes=faixas_opcoes,
                            instituicoes_resumo=resumir_instituicoes(instituicoes))
